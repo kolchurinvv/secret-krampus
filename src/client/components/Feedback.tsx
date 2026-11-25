@@ -1,5 +1,7 @@
 // Solid-controlled snackbar + confirm dialog (BeerCSS styling, no data-ui).
 import { createSignal, Show } from "solid-js";
+import { useMessages } from "../lib/i18n";
+import { componentMessages } from "./messages";
 
 type Toast = { id: number; message: string; kind: "info" | "error" };
 const [toastState, setToastState] = createSignal<Toast | null>(null);
@@ -39,6 +41,7 @@ function closeConfirm(ok: boolean) {
 
 /** Render once per page. */
 export function FeedbackHost() {
+  const m = useMessages(componentMessages);
   return (
     <>
       <div
@@ -61,10 +64,10 @@ export function FeedbackHost() {
               </Show>
               <nav class="right-align no-space">
                 <button class="transparent link" onClick={() => closeConfirm(false)}>
-                  Cancel
+                  {m().cancel}
                 </button>
                 <button classList={{ error: !!req().danger }} onClick={() => closeConfirm(true)}>
-                  {req().confirmLabel ?? "OK"}
+                  {req().confirmLabel ?? m().ok}
                 </button>
               </nav>
             </>

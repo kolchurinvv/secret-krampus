@@ -1,6 +1,9 @@
 import { useNavigate } from "@solidjs/router";
 import { createSignal, onMount, Show } from "solid-js";
 import { authClient } from "../lib/auth-client";
+import { useMessages } from "../lib/i18n";
+import { meMessages } from "../me/messages";
+import { commonMessages } from "../messages";
 import "../styles/app.css";
 
 export default function Login() {
@@ -10,8 +13,12 @@ export default function Login() {
   const [code, setCode] = createSignal("");
   const [name, setName] = createSignal("");
   const [busy, setBusy] = createSignal(false);
-  const [error, setError] = createSignal("");
-  const [notice, setNotice] = createSignal("");
+  const m = useMessages(meMessages);
+  const common = useMessages(commonMessages);
+  // Kept as functions of the current language, so switching it re-renders them.
+  const [error, setErrorFn] = createSignal<(() => string) | null>(null);
+  const setError = (msg: (() => string) | null) => setErrorFn(() => msg);
+  const [sentTo, setSentTo] = createSignal<string | null>(null);
 
   onMount(async () => {
     try {
@@ -27,24 +34,22 @@ export default function Login() {
   const sendCode = async (e?: Event) => {
     e?.preventDefault();
     if (!normalizedEmail().includes("@")) {
-      setError("That doesn't look like an email address.");
+      setError(() => m().notEmail);
       return;
     }
     setBusy(true);
-    setError("");
-    setNotice("");
+    setError(null);
+    setSentTo(null);
     try {
       const { error } = await authClient.emailOtp.sendVerificationOtp({ email: normalizedEmail(), type: "sign-in" });
       if (error) {
-        setError(error.message ?? "Couldn't send the code. Try again in a moment.");
+        setError(() => m().authError(error, m().sendFailed));
         return;
       }
       setStep("code");
-      setNotice(
-        `We sent a 6-digit code to ${normalizedEmail()}. Not there? Check your spam/junk folder — and use the newest email.`,
-      );
+      setSentTo(normalizedEmail());
     } catch {
-      setError("Couldn't reach the North Pole. Check your connection.");
+      setError(() => m().offline);
     } finally {
       setBusy(false);
     }
@@ -54,11 +59,11 @@ export default function Login() {
     e.preventDefault();
     const otp = code().replace(/\D/g, "");
     if (otp.length !== 6) {
-      setError("The code has 6 digits.");
+      setError(() => m().codeLength);
       return;
     }
     setBusy(true);
-    setError("");
+    setError(null);
     try {
       const trimmedName = name().trim();
       const { error } = await authClient.signIn.emailOtp({
@@ -67,12 +72,12 @@ export default function Login() {
         ...(trimmedName ? { name: trimmedName } : {}),
       });
       if (error) {
-        setError(error.message ?? "That code didn't work. Check it, or send a new one.");
+        setError(() => m().authError(error, m().codeFailed));
         return;
       }
       navigate("/me", { replace: true });
     } catch {
-      setError("Couldn't reach the North Pole. Check your connection.");
+      setError(() => m().offline);
     } finally {
       setBusy(false);
     }
@@ -84,8 +89,8 @@ export default function Login() {
         <div class="sk-hero-emoji" aria-hidden="true">
           🎄😈🎁
         </div>
-        <h1 class="sk-display sk-hero-title">Secret Krampus</h1>
-        <p class="sk-muted">Secret Santa, gift ratings &amp; contests — no passwords, just your email.</p>
+        <h1 class="sk-display sk-hero-title">{common().appName}</h1>
+        <p class="sk-muted">{m().tagline}</p>
       </header>
 
       <article class="round sk-card">
@@ -93,7 +98,7 @@ export default function Login() {
           when={step() === "code"}
           fallback={
             <form onSubmit={sendCode} class="sk-stack">
-              <h6>Sign in or sign up</h6>
+              <h6>{m().signInTitle}</h6>
               <div class="field label border round">
                 <input
                   type="email"
@@ -104,19 +109,19 @@ export default function Login() {
                   value={email()}
                   onInput={(e) => setEmail(e.currentTarget.value)}
                 />
-                <label>Your email</label>
+                <label>{m().emailLabel}</label>
               </div>
               <button class="responsive large round" type="submit" disabled={busy()}>
                 <i>mail</i>
-                <span>{busy() ? "Sending…" : "Send me a code"}</span>
+                <span>{busy() ? m().sending : m().sendCode}</span>
               </button>
             </form>
           }
         >
           <form onSubmit={signIn} class="sk-stack">
-            <h6>Enter your code</h6>
-            <Show when={notice()}>
-              <p class="sk-muted sk-m0">{notice()}</p>
+            <h6>{m().codeTitle}</h6>
+            <Show when={sentTo()}>
+              {(to) => <p class="sk-muted sk-m0">{m().codeSent(to())}</p>}
             </Show>
             <div class="field label border round">
               <input
@@ -125,13 +130,16 @@ export default function Login() {
                 autocomplete="one-time-code"
                 pattern="[0-9 ]*"
                 maxlength={7}
+                // A small intrinsic width: the big OTP font times the default 20 chars
+                // was wider than a 390px phone and made the page scroll sideways.
+                size={6}
                 placeholder=" "
                 class="sk-otp"
                 required
                 value={code()}
                 onInput={(e) => setCode(e.currentTarget.value)}
               />
-              <label>6-digit code</label>
+              <label>{m().codeLabel}</label>
             </div>
             <div class="field label border round">
               <input
@@ -142,15 +150,15 @@ export default function Login() {
                 value={name()}
                 onInput={(e) => setName(e.currentTarget.value)}
               />
-              <label>Your name (first time here)</label>
+              <label>{m().nameLabel}</label>
             </div>
             <button class="responsive large round" type="submit" disabled={busy()}>
               <i>login</i>
-              <span>{busy() ? "Checking…" : "Let me in"}</span>
+              <span>{busy() ? m().checking : m().letMeIn}</span>
             </button>
             <nav class="center-align wrap">
               <button type="button" class="transparent small" disabled={busy()} onClick={() => void sendCode()}>
-                Send a new code
+                {m().sendNewCode}
               </button>
               <button
                 type="button"
@@ -159,19 +167,21 @@ export default function Login() {
                 onClick={() => {
                   setStep("email");
                   setCode("");
-                  setError("");
-                  setNotice("");
+                  setError(null);
+                  setSentTo(null);
                 }}
               >
-                Use a different email
+                {m().otherEmail}
               </button>
             </nav>
           </form>
         </Show>
         <Show when={error()}>
-          <p class="sk-error" role="alert">
-            {error()}
-          </p>
+          {(msg) => (
+            <p class="sk-error" role="alert">
+              {msg()()}
+            </p>
+          )}
         </Show>
       </article>
     </main>

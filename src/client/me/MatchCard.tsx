@@ -1,18 +1,19 @@
 import { createSignal, Match, Show, Switch } from "solid-js";
 import type { MeState } from "../../shared/types";
 import { Avatar } from "../components/Avatar";
+import { intlLocale, useMessages } from "../lib/i18n";
+import { meMessages } from "./messages";
 
 export function MatchCard(props: { match: MeState["match"]; poolSize: number }) {
   const [revealed, setRevealed] = createSignal(false);
+  const t = useMessages(meMessages);
 
   return (
     <article class="round sk-card">
-      <h6>Your Secret Santa match</h6>
+      <h6>{t().matchTitle}</h6>
       <Switch>
         <Match when={props.match.state === "not-in-santa"}>
-          <p class="sk-muted">
-            You're not in the Secret Santa draw this time — but you can still win contest stars ⭐
-          </p>
+          <p class="sk-muted">{t().notInSanta}</p>
         </Match>
         <Match when={props.match.state === "waiting"}>
           <div class="sk-match-waiting">
@@ -20,11 +21,7 @@ export function MatchCard(props: { match: MeState["match"]; poolSize: number }) 
               🧝
             </div>
             <p>
-              The elves haven't drawn your name yet.{" "}
-              <strong>
-                {props.poolSize} {props.poolSize === 1 ? "person has" : "people have"}
-              </strong>{" "}
-              signed up so far. You'll get an email when it's done.
+              {t().waitingLead} <strong>{t().signedUp(props.poolSize)}</strong> {t().waitingTail}
             </p>
           </div>
         </Match>
@@ -33,9 +30,10 @@ export function MatchCard(props: { match: MeState["match"]; poolSize: number }) 
             <>
               <Show when={m().changed}>
                 <p class="sk-note">
-                  🔀 <strong>Plot twist!</strong> Your match changed on{" "}
-                  {new Date(m().assignedAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })} because
-                  someone joined late.
+                  🔀 <strong>{t().plotTwist}</strong>{" "}
+                  {t().matchChanged(
+                    new Date(m().assignedAt).toLocaleDateString(intlLocale(), { day: "numeric", month: "short" }),
+                  )}
                 </p>
               </Show>
               <Show
@@ -45,30 +43,30 @@ export function MatchCard(props: { match: MeState["match"]; poolSize: number }) 
                     <span class="sk-big-emoji" aria-hidden="true">
                       🎁
                     </span>
-                    <span>Tap to reveal who you're gifting</span>
-                    <span class="sk-muted small-text">Make sure nobody's peeking 👀</span>
+                    <span>{t().tapToReveal}</span>
+                    <span class="sk-muted small-text">{t().noPeeking}</span>
                   </button>
                 }
               >
                 <div class="sk-match">
                   <Avatar name={m().receiver.name} url={m().receiver.avatarUrl} class="sk-match-avatar" />
                   <div class="max">
-                    <div class="sk-muted small-text">You're gifting</div>
+                    <div class="sk-muted small-text">{t().youreGifting}</div>
                     <div class="sk-display sk-match-name">{m().receiver.name}</div>
                   </div>
                   <button
                     class="circle transparent"
                     type="button"
-                    title="Hide"
-                    aria-label="Hide match"
+                    title={t().hide}
+                    aria-label={t().hideMatch}
                     onClick={() => setRevealed(false)}
                   >
                     <i>visibility_off</i>
                   </button>
                 </div>
                 <div class="sk-wishlist">
-                  <div class="sk-muted small-text">Their wishlist</div>
-                  <Show when={m().receiver.wishlist.trim()} fallback={<p class="sk-muted">No wishlist yet — improvise! 🎲</p>}>
+                  <div class="sk-muted small-text">{t().theirWishlist}</div>
+                  <Show when={m().receiver.wishlist.trim()} fallback={<p class="sk-muted">{t().noWishlist}</p>}>
                     <p class="sk-prewrap">{m().receiver.wishlist}</p>
                   </Show>
                 </div>

@@ -5,6 +5,9 @@ import { Avatar } from "../components/Avatar";
 import { FeedbackHost, toast } from "../components/Feedback";
 import { createLiveQuery } from "../components/liveQuery";
 import { authClient } from "../lib/auth-client";
+import { useMessages } from "../lib/i18n";
+import { meMessages } from "../me/messages";
+import { commonMessages } from "../messages";
 import { MatchCard } from "../me/MatchCard";
 import { ProfileCard } from "../me/ProfileCard";
 import { StarsCard } from "../me/StarsCard";
@@ -14,6 +17,8 @@ import "../styles/app.css";
 export default function Me() {
   const navigate = useNavigate();
   const q = createLiveQuery<MeState>("/api/me");
+  const m = useMessages(meMessages);
+  const common = useMessages(commonMessages);
 
   createEffect(() => {
     const r = q.result();
@@ -24,7 +29,7 @@ export default function Me() {
     try {
       await authClient.signOut();
     } catch {
-      toast("Couldn't sign out — try again.", "error");
+      toast(m().signOutFailed, "error");
       return;
     }
     navigate("/login", { replace: true });
@@ -39,15 +44,15 @@ export default function Me() {
               <nav class="sk-topbar">
                 <Avatar name={me().participant.name || "?"} url={me().participant.avatarUrl} class="sk-topbar-avatar" />
                 <div class="max">
-                  <div class="sk-display sk-topbar-title">Secret Krampus</div>
+                  <div class="sk-display sk-topbar-title">{common().appName}</div>
                   <div class="sk-muted small-text sk-ellipsis">{me().participant.name || me().email}</div>
                 </div>
                 <Show when={me().isAdmin}>
-                  <A href="/admin" class="button circle transparent" title="Admin" aria-label="Admin">
+                  <A href="/admin" class="button circle transparent" title={m().admin} aria-label={m().admin}>
                     <i>admin_panel_settings</i>
                   </A>
                 </Show>
-                <button class="circle transparent" title="Sign out" aria-label="Sign out" onClick={() => void signOut()}>
+                <button class="circle transparent" title={m().signOut} aria-label={m().signOut} onClick={() => void signOut()}>
                   <i>logout</i>
                 </button>
               </nav>
@@ -71,9 +76,9 @@ export default function Me() {
         <Match when={(() => { const r = q.result(); return r && !r.ok && r.status !== 401 ? r : undefined; })()}>
           {(err) => (
             <article class="round sk-card">
-              <h6>Something went wrong</h6>
+              <h6>{m().loadFailed}</h6>
               <p class="sk-muted">{err().message}</p>
-              <button onClick={q.refetch}>Try again</button>
+              <button onClick={q.refetch}>{m().tryAgain}</button>
             </article>
           )}
         </Match>

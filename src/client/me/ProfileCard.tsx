@@ -3,9 +3,12 @@ import type { MeState } from "../../shared/types";
 import { AvatarUpload } from "../components/AvatarUpload";
 import { errorMessage, toast } from "../components/Feedback";
 import { api } from "../lib/api";
+import { useMessages } from "../lib/i18n";
+import { meMessages } from "./messages";
 
 export function ProfileCard(props: { me: MeState; onSaved: () => void; highlight?: boolean }) {
   const p = () => props.me.participant;
+  const m = useMessages(meMessages);
   const [name, setName] = createSignal(p().name);
   const [wishlist, setWishlist] = createSignal(p().wishlist);
   const [saving, setSaving] = createSignal(false);
@@ -27,7 +30,7 @@ export function ProfileCard(props: { me: MeState; onSaved: () => void; highlight
   const save = async (e: Event) => {
     e.preventDefault();
     if (!name().trim()) {
-      toast("Please tell us your name 🙂", "error");
+      toast(m().needName, "error");
       return;
     }
     setSaving(true);
@@ -35,7 +38,7 @@ export function ProfileCard(props: { me: MeState; onSaved: () => void; highlight
       await api.patch("/api/me", { name: name().trim(), wishlist: wishlist() });
       setNameDirty(false);
       setWishDirty(false);
-      toast("Saved ✓");
+      toast(m().saved);
       props.onSaved();
     } catch (err) {
       toast(errorMessage(err), "error");
@@ -47,9 +50,9 @@ export function ProfileCard(props: { me: MeState; onSaved: () => void; highlight
   return (
     <article class="round sk-card" classList={{ "sk-card-highlight": !!props.highlight }}>
       <form class="sk-stack" onSubmit={save}>
-        <Show when={props.highlight} fallback={<h6>Your profile</h6>}>
-          <h5 class="sk-display">What should we call you? 🎅</h5>
-          <p class="sk-muted sk-m0">Your name shows up on the TV and on the leaderboard.</p>
+        <Show when={props.highlight} fallback={<h6>{m().profileTitle}</h6>}>
+          <h5 class="sk-display">{m().whatName}</h5>
+          <p class="sk-muted sk-m0">{m().nameShows}</p>
         </Show>
         <div class="sk-profile-row">
           <AvatarUpload
@@ -58,14 +61,12 @@ export function ProfileCard(props: { me: MeState; onSaved: () => void; highlight
             url={p().avatarUrl}
             class="sk-profile-avatar"
             onUploaded={() => {
-              toast("Looking good! 📸");
+              toast(m().lookingGood);
               props.onSaved();
             }}
             onError={(m) => toast(m, "error")}
           />
-          <div class="max sk-muted small-text">
-            Tap your picture to add a photo — it shows on the leaderboard and (gulp) in the Krampus reveal.
-          </div>
+          <div class="max sk-muted small-text">{m().photoHint}</div>
         </div>
         <div class="field label border round">
           <input
@@ -79,7 +80,7 @@ export function ProfileCard(props: { me: MeState; onSaved: () => void; highlight
               setName(e.currentTarget.value);
             }}
           />
-          <label>Name</label>
+          <label>{m().nameField}</label>
         </div>
         <div class="field label border round textarea">
           <textarea
@@ -92,13 +93,13 @@ export function ProfileCard(props: { me: MeState; onSaved: () => void; highlight
               setWishlist(e.currentTarget.value);
             }}
           />
-          <label>Wishlist / gift hints</label>
+          <label>{m().wishlistField}</label>
         </div>
-        <p class="sk-muted small-text sk-m0">Your Secret Santa sees your wishlist (but not who they are to you 🤫).</p>
+        <p class="sk-muted small-text sk-m0">{m().wishlistNote}</p>
         <nav class="right-align">
           <button type="submit" class="round" disabled={saving() || !changed()}>
             <i>save</i>
-            <span>{saving() ? "Saving…" : "Save"}</span>
+            <span>{saving() ? m().saving : m().save}</span>
           </button>
         </nav>
       </form>

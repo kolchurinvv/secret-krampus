@@ -1,19 +1,7 @@
 import { createSignal, For, Show } from "solid-js";
 import { MAX_SCORE, MIN_SCORE } from "../../shared/types";
-
-// Captions for each half-star step (score 1..10).
-const CAPTIONS = [
-  "Lump of coal 🪨",
-  "Krampus-approved 😈",
-  "Regift material 🔁",
-  "Meh 😐",
-  "It's… fine 🙂",
-  "Pretty nice 😊",
-  "Really good! 😄",
-  "Love it ❤️",
-  "Amazing! 🤩",
-  "Best gift ever! 🎁",
-];
+import { useMessages } from "../lib/i18n";
+import { componentMessages } from "./messages";
 
 const STAR_PATH =
   "M12 2.6l2.93 5.94 6.56.95-4.75 4.63 1.12 6.53L12 17.57l-5.86 3.08 1.12-6.53-4.75-4.63 6.56-.95z";
@@ -39,6 +27,7 @@ export function StarSlider(props: {
 }) {
   let row!: HTMLDivElement;
   const [dragging, setDragging] = createSignal(false);
+  const m = useMessages(componentMessages);
 
   const fromPointer = (clientX: number) => {
     const rect = row.getBoundingClientRect();
@@ -93,11 +82,11 @@ export function StarSlider(props: {
         class="sk-starslider-row"
         role="slider"
         tabindex={props.disabled ? -1 : 0}
-        aria-label={props.label ?? "Gift rating"}
+        aria-label={props.label ?? m().ratingLabel}
         aria-valuemin={MIN_SCORE}
         aria-valuemax={MAX_SCORE}
         aria-valuenow={props.value ?? undefined}
-        aria-valuetext={props.value ? `${props.value / 2} of 5 stars` : "Not rated"}
+        aria-valuetext={props.value ? m().valueText(props.value / 2) : m().notRated}
         aria-disabled={props.disabled}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -124,11 +113,11 @@ export function StarSlider(props: {
         </For>
       </div>
       <div class="sk-starslider-meta">
-        <Show when={props.value} fallback={<span class="sk-muted">Drag across the stars</span>}>
+        <Show when={props.value} fallback={<span class="sk-muted">{m().dragHint}</span>}>
           {(v) => (
             <>
-              <span class="sk-starslider-caption">{CAPTIONS[v() - 1]}</span>
-              <span class="sk-starslider-score">{(v() / 2).toFixed(1)} / 5</span>
+              <span class="sk-starslider-caption">{m().caption(v())}</span>
+              <span class="sk-starslider-score">{m().score(v() / 2)}</span>
             </>
           )}
         </Show>

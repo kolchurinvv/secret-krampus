@@ -1,7 +1,10 @@
 import { Show } from "solid-js";
 import type { PublicState } from "../../shared/types";
+import { useMessages } from "../lib/i18n";
+import { meMessages } from "./messages";
 
 export function StarsCard(props: { participantId: string; live: PublicState | null }) {
+  const m = useMessages(meMessages);
   const info = () => {
     const ps = props.live?.participants ?? [];
     const me = ps.find((p) => p.id === props.participantId);
@@ -17,12 +20,8 @@ export function StarsCard(props: { participantId: string; live: PublicState | nu
             ⭐
           </div>
           <div class="max">
-            <div class="sk-stars-count">
-              {i().stars} {i().stars === 1 ? "star" : "stars"}
-            </div>
-            <div class="sk-muted">
-              #{i().rank} of {i().total} on the leaderboard
-            </div>
+            <div class="sk-stars-count">{m().stars(i().stars)}</div>
+            <div class="sk-muted">{m().rank(i().rank, i().total)}</div>
           </div>
         </article>
       )}
