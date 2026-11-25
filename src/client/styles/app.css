@@ -12,7 +12,7 @@ body {
 .sk-page {
   max-inline-size: 40rem;
   margin: 0 auto;
-  padding: 0.75rem 0.75rem calc(7rem + env(safe-area-inset-bottom));
+  padding: 0.75rem 0.75rem calc(2rem + env(safe-area-inset-bottom));
   min-block-size: 100dvh;
 }
 .sk-admin {
@@ -44,6 +44,7 @@ body {
   margin: 0.5rem 0;
 }
 .sk-ellipsis {
+  border-radius: 0; /* never inherit a parent's rounding: it clips the text */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -553,17 +554,17 @@ body {
   margin: 0;
 }
 
-/* Sticky "+1" action bar — sits above the home indicator on phones. */
+/* "+1" action bar. Sticky (not fixed) to the bottom of the page column, so
+   it always matches the column's width on desktop and still rides above the
+   home indicator while a long list scrolls on phones. */
 .sk-actionbar {
-  position: fixed;
-  inset-inline: 0;
+  position: sticky;
   inset-block-end: 0;
   z-index: 50;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  max-inline-size: 56rem;
-  margin: 0 auto;
+  margin: 0.75rem -0.75rem 0;
   padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
   background: var(--surface-container-highest);
   box-shadow: 0 -4px 18px rgb(0 0 0 / 0.35);
@@ -571,6 +572,17 @@ body {
 }
 .sk-actionbar > button {
   margin: 0;
+}
+/* The label block takes the free space and pushes the buttons right. */
+.sk-actionbar > .max {
+  flex: 1;
+  min-inline-size: 0;
+}
+/* BeerCSS's `* { border-radius: inherit }` would hand the bar's rounded top
+   corners to the text, and with the ellipsis overflow they clip the label. */
+.sk-actionbar > :not(button),
+.sk-actionbar > :not(button) * {
+  border-radius: 0;
 }
 
 /* TV scene picker */
