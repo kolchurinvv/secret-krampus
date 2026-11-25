@@ -69,7 +69,8 @@ export function LeaderboardScene(props: { data: PublicState }) {
       {/* The award banner takes the header's place while it shows. */}
       <div class="sc-lb-head" classList={{ "has-banner": !!banner() }}>
         <div class="sc-lb-head-content">
-          <div class="sc-lb-title">🏆 Leaderboard</div>
+          {/* Ranked by total stars across every contest; "Now playing" only labels the current one. */}
+          <div class="sc-lb-title">🏆 Overall standings</div>
           <Show when={contestName()}>
             <div class="sc-lb-contest">
               Now playing: <strong>{contestName()}</strong>
