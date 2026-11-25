@@ -723,3 +723,8 @@ dialog.sk-confirm > h6 {
   color: var(--on-secondary-container);
   white-space: nowrap;
 }
+/* Anything scrolled into view (keyboard focus, find-in-page) lands above the
+   sticky +1 bar instead of underneath it. */
+html {
+  scroll-padding-block-end: 7rem;
+}
