@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, Show } from "solid-js";
 import type { AdminPerson, ContestKind } from "../../shared/types";
 import { Avatar } from "../components/Avatar";
 import { confirmDialog } from "../components/Feedback";
@@ -83,8 +83,13 @@ export function ContestsTab() {
       : list.sort((a, b) => b.stars - a.stars || a.name.localeCompare(b.name));
   });
   const current = () => state().contests.find((c) => c.id === state().currentContestId) ?? null;
+  // Players can only be picked once a contest is chosen, so every award is
+  // labelled; switching contest drops the old selection (new contest, new team).
+  const locked = () => !current();
+  createEffect(on(() => state().currentContestId, () => setSelected(new Set<string>()), { defer: true }));
   const isSelected = (id: string) => selected().has(id);
   const toggle = (id: string) => {
+    if (locked()) return;
     const next = new Set(selected());
     if (next.has(id)) next.delete(id);
     else next.add(id);
@@ -108,13 +113,17 @@ export function ContestsTab() {
   };
 
   // −1 to fix a mistaken award; people already at 0 are skipped.
-  const selectedWithStars = () => people().filter((p) => selected().has(p.id) && p.stars > 0);
+  // −1 takes back stars won in the picked contest, so zeroing it out (and
+  // then deleting it) is possible.
+  const starsHere = (p: AdminPerson) => p.contestStars[state().currentContestId ?? ""] ?? 0;
+  const selectedWithStars = () => people().filter((p) => selected().has(p.id) && starsHere(p) > 0);
   const takeStar = async () => {
     const losers = selectedWithStars();
-    if (losers.length === 0) return;
+    const c = current();
+    if (losers.length === 0 || !c) return;
     const names = losers.map((p) => p.name);
     const r = await run(
-      () => api.post("/api/admin/stars/remove", { participantIds: losers.map((p) => p.id) }),
+      () => api.post("/api/admin/stars/remove", { participantIds: losers.map((p) => p.id), contestId: c.id }),
       `−1 ⭐ ${names.length <= 3 ? names.join(", ") : plural(names.length, "person", "people")}`,
     );
     if (r) setSelected(new Set<string>());
@@ -134,14 +143,15 @@ export function ContestsTab() {
     }
   };
 
-  const setCurrent = (id: string) => run(() => api.post("/api/admin/contests/current", { id: id || null }));
+  /** Tap a contest to pick it; tap the picked one again to put it down. */
+  const pickContest = (id: string) =>
+    run(() => api.post("/api/admin/contests/current", { id: state().currentContestId === id ? null : id }));
 
-  const deleteCurrent = async () => {
-    const c = current();
-    if (!c) return;
+  const deleteContest = async (c: { id: string; name: string; stars: number }) => {
+    if (c.stars > 0) return; // the button is disabled; the server refuses too
     const ok = await confirmDialog({
       title: `Delete “${c.name}”?`,
-      message: "Stars already won in it are kept, just without the contest label.",
+      message: "Nobody has a star in it, so it disappears as if it never happened. This can't be undone.",
       confirmLabel: "Delete",
       danger: true,
     });
@@ -174,34 +184,54 @@ export function ContestsTab() {
 
   return (
     <div class="sk-stack sk-contests">
-      <article class="round sk-card">
-        <h6>Contest</h6>
-        <div class="sk-form-row">
-          <div class="field label border round max">
-            <select onChange={(e) => void setCurrent(e.currentTarget.value)}>
-              <option value="" selected={!state().currentContestId}>
-                — no contest label —
-              </option>
-              <For each={state().contests}>
-                {(c) => (
-                  <option value={c.id} selected={c.id === state().currentContestId}>
-                    {c.name} ({c.kind})
-                  </option>
-                )}
-              </For>
-            </select>
-            <label>Current contest</label>
-          </div>
-          <Show when={current()}>
-            <button class="circle transparent" title="Delete contest" aria-label="Delete contest" onClick={() => void deleteCurrent()}>
-              <i>delete</i>
-            </button>
-          </Show>
+      <article class="round sk-card no-padding">
+        <div class="sk-list-head">
+          <h6 class="sk-m0">Contests</h6>
         </div>
-        <form class="sk-form-row sk-top-gap" onSubmit={createContest}>
+        <ul class="sk-people sk-contest-list">
+          <For each={state().contests} fallback={<li class="sk-empty">No contests yet — add the first one below.</li>}>
+            {(c) => (
+              <li
+                class="sk-person sk-person-compact sk-selectable"
+                classList={{ "is-selected": c.id === state().currentContestId }}
+                role="radio"
+                aria-checked={c.id === state().currentContestId}
+                tabindex="0"
+                onClick={() => void pickContest(c.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    void pickContest(c.id);
+                  }
+                }}
+              >
+                <i class="sk-contest-pick">{c.id === state().currentContestId ? "radio_button_checked" : "radio_button_unchecked"}</i>
+                <i class="sk-muted">{c.kind === "team" ? "groups" : "person"}</i>
+                <span class="sk-ellipsis max">{c.name}</span>
+                <span class="small-text sk-muted">{c.kind === "team" ? "Team" : "Solo"}</span>
+                <span class="sk-contest-stars small-text" title="Stars awarded in this contest">
+                  ⭐ {c.stars}
+                </span>
+                <button
+                  class="circle transparent small"
+                  disabled={c.stars > 0}
+                  title={c.stars > 0 ? `Has ${c.stars} ⭐ — take them back (−1) before deleting` : "Delete contest"}
+                  aria-label={`Delete ${c.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void deleteContest(c);
+                  }}
+                >
+                  <i>delete</i>
+                </button>
+              </li>
+            )}
+          </For>
+        </ul>
+        <form class="sk-form-row sk-contest-add" onSubmit={createContest}>
           <div class="field label border round max">
             <input type="text" placeholder=" " maxlength={60} value={newName()} onInput={(e) => setNewName(e.currentTarget.value)} />
-            <label>New contest name</label>
+            <label>New contest</label>
           </div>
           <nav class="no-space sk-kind">
             <button
@@ -225,16 +255,17 @@ export function ContestsTab() {
           </nav>
           <button type="submit" class="round" disabled={!newName().trim()}>
             <i>add</i>
-            <span>Create</span>
+            <span>Add</span>
           </button>
         </form>
       </article>
 
-      <article class="round sk-card no-padding">
+      <article class="round sk-card no-padding" classList={{ "sk-locked": locked() }}>
         <div class="sk-list-head">
           <label class="checkbox">
             <input
               type="checkbox"
+              disabled={locked()}
               checked={allSelected()}
               onChange={() => setSelected(allSelected() ? new Set<string>() : new Set(people().map((p) => p.id)))}
             />
@@ -246,17 +277,34 @@ export function ContestsTab() {
             <span>{sortBy() === "name" ? "A–Z" : "Stars"}</span>
           </button>
         </div>
+        <Show
+          when={!locked()}
+          fallback={
+            <p class="sk-lock-hint small-text">
+              <i>lock</i> Pick a contest above to award stars.
+            </p>
+          }
+        >
+          <p class="sk-lock-hint small-text">
+            <i>emoji_events</i> Awarding in <strong>{current()?.name}</strong> — pick the {current()?.kind === "team" ? "team" : "winner"}.
+          </p>
+        </Show>
         <ul class="sk-people">
           <For each={people()} fallback={<li class="sk-empty">Add people first.</li>}>
             {(p) => (
               <li class="sk-person sk-person-compact sk-selectable" classList={{ "is-selected": isSelected(p.id) }}>
                 <label class="checkbox sk-pick">
-                  <input type="checkbox" checked={isSelected(p.id)} onChange={() => toggle(p.id)} />
+                  <input type="checkbox" disabled={locked()} checked={isSelected(p.id)} onChange={() => toggle(p.id)} />
                   <span />
                 </label>
                 <div class="sk-pick-body max" onClick={() => toggle(p.id)}>
                   <Avatar name={p.name} url={p.avatarUrl} class="sk-person-avatar-sm" />
                   <span class="sk-ellipsis">{p.name}</span>
+                  <Show when={!locked() && starsHere(p) > 0}>
+                    <span class="sk-here small-text" title={`Stars in ${current()?.name}`}>
+                      {starsHere(p)} here
+                    </span>
+                  </Show>
                 </div>
                 <StarCell person={p} />
               </li>
@@ -314,7 +362,7 @@ export function ContestsTab() {
         <div class="sk-actionbar">
           <div class="max">
             <strong>{selected().size} selected</strong>
-            <div class="small-text sk-muted sk-ellipsis">{current()?.name ?? "no contest label"}</div>
+            <div class="small-text sk-muted sk-ellipsis">{current()?.name}</div>
           </div>
           <button class="transparent" onClick={() => setSelected(new Set<string>())}>
             Clear
@@ -322,7 +370,7 @@ export function ContestsTab() {
           <button
             class="round large border"
             disabled={busy() || selectedWithStars().length === 0}
-            title="Take one star from each selected person (anyone at 0 is skipped)"
+            title="Take back one star won in this contest from each selected person (anyone with none here is skipped)"
             onClick={() => void takeStar()}
           >
             <span>−1 ⭐</span>

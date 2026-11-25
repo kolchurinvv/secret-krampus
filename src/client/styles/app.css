@@ -683,3 +683,43 @@ dialog.sk-confirm > h6 {
 .sk-card.no-padding {
   overflow: clip;
 }
+
+/* Contests tab: pick a contest first, then its winners. */
+.sk-contest-list > li {
+  gap: 0.75rem;
+  cursor: pointer;
+}
+.sk-contest-pick {
+  color: var(--primary);
+}
+.sk-contest-add {
+  padding: 0.75rem 1rem 1rem;
+}
+.sk-lock-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0 1rem 0.5rem;
+  color: var(--on-surface-variant);
+}
+.sk-lock-hint > i {
+  font-size: 1.1rem;
+}
+.sk-locked .sk-pick,
+.sk-locked .sk-pick-body {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.sk-contest-stars {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sk-here {
+  flex: none;
+  padding: 0 0.45rem;
+  border-radius: 1rem;
+  background: var(--secondary-container);
+  color: var(--on-secondary-container);
+  white-space: nowrap;
+}
