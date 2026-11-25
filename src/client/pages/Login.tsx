@@ -40,7 +40,9 @@ export default function Login() {
         return;
       }
       setStep("code");
-      setNotice(`We sent a 6-digit code to ${normalizedEmail()}.`);
+      setNotice(
+        `We sent a 6-digit code to ${normalizedEmail()}. Not there? Check your spam/junk folder — and use the newest email.`,
+      );
     } catch {
       setError("Couldn't reach the North Pole. Check your connection.");
     } finally {
