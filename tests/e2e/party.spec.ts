@@ -205,8 +205,19 @@ test("ratings stay open until the admin closes the round; a tie goes to round 2,
   const revealed = await json(admin, "get", "/api/live/state");
   expect(revealed.krampus.entries).toHaveLength(1);
   expect(revealed.krampus.entries[0].giftForName).toBe("Anna");
+  // The Krampus is the person who GAVE Anna her gift: ask each guest's phone
+  // whom they were gifting (the draw is random, so look it up).
+  let giver: string | undefined;
+  for (const [name, ctx] of Object.entries(everyone)) {
+    const me = await json(ctx, "get", "/api/me");
+    if (me.match.state === "assigned" && me.match.receiver.name === "Anna") giver = name;
+  }
+  expect(giver, "someone gives to Anna").toBeDefined();
+  expect(giver).not.toBe("Anna");
+  expect(revealed.krampus.entries[0].id).toBe(ids[giver!]);
   await expect(tv.locator('[data-scene="krampus"]')).toBeVisible();
   await expect(tv.getByText(/SECRET KRAMPUS/)).toBeVisible({ timeout: 10_000 });
+  await expect(tv.locator(".sc-kr-name")).toHaveText(giver!);
   await watchPause(tv, 8000);
 });
 
