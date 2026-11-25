@@ -47,6 +47,10 @@ app.use(
 );
 app.get(
   "*",
+  // A missing *file* (an old /assets chunk after a rebuild, an absent
+  // /sfx/*.mp3) must 404. Answering with index.html makes the browser try to
+  // run HTML as a module, and the page silently renders nothing.
+  async (c, next) => (/\.[a-z0-9]+$/i.test(c.req.path) ? c.text("Not found", 404) : next()),
   serveStatic({
     // `path` is resolved against `root`; an absolute path here would be joined
     // onto the default root and miss (STATIC_DIR is absolute in the image).
