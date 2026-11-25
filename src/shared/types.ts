@@ -110,6 +110,8 @@ export type AdminPerson = {
   inSanta: boolean;
   hasAccount: boolean;
   stars: number;
+  /** Stars won per contest (contestId → count); contests with none are absent. */
+  contestStars: Record<string, number>;
   createdAt: number;
   santa: {
     /** Has a giver→receiver assignment (as giver). Never says to whom. */
@@ -133,7 +135,8 @@ export type AdminState = {
     locked: boolean;
   };
   voting: { round: number; status: VoteStatus; hasResult: boolean; revealed: boolean };
-  contests: { id: string; name: string; kind: ContestKind; createdAt: number }[];
+  /** `stars`: awarded in this contest. Only a contest at 0 can be deleted. */
+  contests: { id: string; name: string; kind: ContestKind; createdAt: number; stars: number }[];
   currentContestId: string | null;
   lastAward: { batchId: string; at: number; contestName: string | null; names: string[] } | null;
   scene: { kind: SceneKind; startedAt: number; message: string };
@@ -181,10 +184,11 @@ export type ApiError = { error: string };
  *   POST   /api/admin/voting/close-round
  *   POST   /api/admin/voting/reset
  *   POST   /api/admin/contests                { name, kind }
- *   DELETE /api/admin/contests/:id
+ *   DELETE /api/admin/contests/:id             (409 while it still has stars)
  *   POST   /api/admin/contests/current        { id: string | null }
  *   POST   /api/admin/stars/award             { participantIds: string[], contestId?: string | null }  (omitted → current contest, null → none)
- *   POST   /api/admin/stars/remove            { participantIds: string[] } → { ok, removed, skipped }  (−1 each; no stars → skipped)
+ *   POST   /api/admin/stars/remove            { participantIds: string[], contestId?: string } → { ok, removed, skipped }
+ *                                              (−1 each, from that contest if given; nothing to remove → skipped)
  *   POST   /api/admin/stars/remove-one        { participantId }
  *   POST   /api/admin/stars/undo-last
  *   POST   /api/admin/stars/set               { participantId, count }

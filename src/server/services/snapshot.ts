@@ -9,7 +9,7 @@ import { currentVersion } from "../events";
 import { emailMode } from "./email";
 import { giftsFor, hasVotedAll, roundVoters, type RoundContext } from "./krampus";
 import { loadRows } from "./santa";
-import { lastBatch, leaders, starCounts } from "./scores";
+import { contestStarCounts, lastBatch, leaders, starCounts } from "./scores";
 import { getState } from "./state";
 import { roundContext, roundVotes } from "./voting";
 import { storageMode } from "./storage";
@@ -158,6 +158,8 @@ export function buildAdminState(): AdminState {
   const lead = leaders();
   const nameOf = new Map(all.map((p) => [p.id, displayName(p.name)]));
   const last = lastBatch();
+  const byContest = contestStarCounts();
+  const sum = (m: Map<string, number> | undefined) => [...(m ?? new Map<string, number>()).values()].reduce((a, b) => a + b, 0);
 
   return {
     people: all.map((p) => {
@@ -170,6 +172,9 @@ export function buildAdminState(): AdminState {
         inSanta: p.inSanta,
         hasAccount: p.userId !== null,
         stars: stars.get(p.id) ?? 0,
+        contestStars: Object.fromEntries(
+          [...byContest].flatMap(([cid, m]) => (m.get(p.id) ? [[cid, m.get(p.id)!]] : [])),
+        ),
         createdAt: p.createdAt.getTime(),
         santa: {
           assigned: !!row,
@@ -199,7 +204,7 @@ export function buildAdminState(): AdminState {
       .from(contest)
       .orderBy(asc(contest.createdAt))
       .all()
-      .map((c) => ({ id: c.id, name: c.name, kind: c.kind, createdAt: c.createdAt.getTime() })),
+      .map((c) => ({ id: c.id, name: c.name, kind: c.kind, createdAt: c.createdAt.getTime(), stars: sum(byContest.get(c.id)) })),
     currentContestId: state.currentContestId,
     lastAward: last
       ? { ...last, names: last.participantIds.map((id) => nameOf.get(id) ?? "?") }

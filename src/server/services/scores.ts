@@ -1,5 +1,5 @@
 // Contest stars. One row per star; a person's score is their row count.
-import { desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db, type DB } from "../db";
 import { contest, participant, star } from "../db/schema";
 import type { ContestKind } from "../../shared/types";
@@ -16,6 +16,22 @@ export function starCounts(q: Pick<DB, "select"> = db): Map<string, number> {
       .all()
       .map((r) => [r.id, Number(r.n)]),
   );
+}
+
+/** contestId → participantId → stars won in that contest. */
+export function contestStarCounts(q: Pick<DB, "select"> = db): Map<string, Map<string, number>> {
+  const out = new Map<string, Map<string, number>>();
+  for (const r of q
+    .select({ contestId: star.contestId, participantId: star.participantId, n: sql<number>`count(*)` })
+    .from(star)
+    .where(isNotNull(star.contestId))
+    .groupBy(star.contestId, star.participantId)
+    .all()) {
+    const m = out.get(r.contestId!) ?? new Map<string, number>();
+    m.set(r.participantId, Number(r.n));
+    out.set(r.contestId!, m);
+  }
+  return out;
 }
 
 function existingIds(ids: string[]) {
@@ -66,24 +82,29 @@ export function removeOne(participantId: unknown) {
 }
 
 /**
- * −1 star for each of `ids` who has one (their most recent star), to fix a
- * mistaken award. People with no stars are skipped.
+ * −1 star for each of `ids` who has one, to fix a mistaken award. With a
+ * `contestId` only stars won in that contest count (so a contest can be
+ * zeroed out and then deleted); otherwise their most recent star of any kind.
+ * People with nothing to remove are skipped.
  */
-export function removeFromEach(ids: unknown) {
+export function removeFromEach(ids: unknown, contestId?: unknown) {
   if (!Array.isArray(ids) || ids.length === 0 || !ids.every((i) => typeof i === "string")) {
     throw new UserError("Pick at least one person.");
   }
+  const cid = contestId === undefined || contestId === null ? null : checkContest(contestId);
   const unique = [...new Set(ids as string[])];
   const drop = unique.flatMap((participantId) => {
     const last = db
       .select({ id: star.id })
       .from(star)
-      .where(eq(star.participantId, participantId))
+      .where(cid ? and(eq(star.participantId, participantId), eq(star.contestId, cid)) : eq(star.participantId, participantId))
       .orderBy(desc(star.id))
       .get();
     return last ? [last.id] : [];
   });
-  if (drop.length === 0) throw new UserError("None of them have stars to take away.");
+  if (drop.length === 0) {
+    throw new UserError(cid ? "None of them have stars in this contest to take away." : "None of them have stars to take away.");
+  }
   db.delete(star).where(inArray(star.id, drop)).run();
   notify();
   return { removed: drop.length, skipped: unique.length - drop.length };
@@ -164,7 +185,14 @@ export function createContest(name: unknown, kind: unknown) {
   return c;
 }
 
+/** Only a contest nobody has a star in can go — as if it never happened. */
 export function deleteContest(id: string) {
+  const c = db.select().from(contest).where(eq(contest.id, id)).get();
+  if (!c) throw new UserError("No such contest.", 404);
+  const n = db.select({ n: sql<number>`count(*)` }).from(star).where(eq(star.contestId, id)).get()?.n ?? 0;
+  if (Number(n) > 0) {
+    throw new UserError(`“${c.name}” still has ${n} ⭐ awarded. Take them back first (−1), then delete it.`, 409);
+  }
   db.delete(contest).where(eq(contest.id, id)).run();
   notify();
 }

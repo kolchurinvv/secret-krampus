@@ -93,7 +93,7 @@ export const admin = new Hono<AppEnv>()
   })
   .post("/stars/remove", async (c) => {
     const b = await body(c.req);
-    return c.json({ ok: true, ...removeFromEach(b.participantIds) });
+    return c.json({ ok: true, ...removeFromEach(b.participantIds, b.contestId) });
   })
   .post("/stars/undo-last", (c) => {
     undoLast();
