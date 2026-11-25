@@ -8,8 +8,9 @@ A small party app for **[secretkrampus.party](https://secretkrampus.party)**:
   spliced into the existing loop, which changes exactly one existing person's match
   (they get a "plot twist" email).
 - **Secret Krampus** — everyone rates the gift they received (half-star slider). The
-  giver of the lowest-rated gift is the Krampus. Ties trigger automatic tie-break rounds
-  where everyone rates the tied gifts.
+  giver of the lowest-rated gift is the Krampus. Ratings can change until the admin
+  closes the round. If gifts tie for lowest, closing it opens a tie-break round where
+  everyone rates just the tied gifts, again until one is lowest: there is only one Krampus.
 - **Contests** — individual or team contests; every win is a ⭐. The admin ticks a group
   and gives them all +1.
 - **The TV** — `/live` is a full-screen public display the admin drives: title,

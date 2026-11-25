@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { decide, giftsFor, hasVotedAll, isRoundComplete, votersFor, type RoundContext, type Vote } from "./krampus";
+import { decide, giftsFor, hasVotedAll, votersFor, type RoundContext, type Vote } from "./krampus";
 
 // Loop a→b→c→d→e→a; gifts are identified by giver.
 const receiverOf = new Map([
@@ -24,7 +24,6 @@ describe("round 1", () => {
 
   test("a unique lowest gift crowns its giver", () => {
     const votes = r1({ a: 8, b: 3, c: 9, d: 6, e: 7 });
-    expect(isRoundComplete(round1, votes)).toBe(true);
     expect(decide(round1, votes)).toEqual({ kind: "done", krampusIds: ["b"], score: 3 });
   });
 
@@ -33,9 +32,8 @@ describe("round 1", () => {
     expect(decide(round1, votes)).toEqual({ kind: "next-round", round: 2, gifts: ["a", "c"] });
   });
 
-  test("incomplete until every recipient voted; force-close ignores missing votes", () => {
+  test("closing early skips the missing ratings", () => {
     const votes = r1({ a: 5, b: 4, c: 9 });
-    expect(isRoundComplete(round1, votes)).toBe(false);
     expect(hasVotedAll(round1, votes, "b")).toBe(true);
     expect(hasVotedAll(round1, votes, "e")).toBe(false);
     expect(decide(round1, votes)).toEqual({ kind: "done", krampusIds: ["b"], score: 4 });
@@ -44,7 +42,6 @@ describe("round 1", () => {
   test("recipients who can't sign in owe no vote", () => {
     const ctx = { ...round1, voters: new Set(["a", "c", "d", "e"]) }; // b can't vote
     expect(votersFor(ctx, "a")).toEqual([]);
-    expect(isRoundComplete(ctx, r1({ b: 5, c: 5, d: 5, e: 6 }))).toBe(true);
   });
 
   test("ignores votes from people who don't get a say", () => {
@@ -52,8 +49,8 @@ describe("round 1", () => {
     expect(decide(round1, votes).kind).toBe("next-round"); // all tied at 8, the stray 1 doesn't count
   });
 
-  test("no votes at all → no Krampus", () => {
-    expect(decide(round1, [])).toEqual({ kind: "done", krampusIds: [], score: null });
+  test("nothing rated yet → the round can't close", () => {
+    expect(decide(round1, [])).toEqual({ kind: "no-ratings" });
   });
 });
 
@@ -71,13 +68,22 @@ describe("tie-break rounds", () => {
 
   test("lowest average wins", () => {
     const votes = everyone(round2, (g) => (g === "a" ? 3 : 4));
-    expect(isRoundComplete(round2, votes)).toBe(true);
     expect(decide(round2, votes)).toEqual({ kind: "done", krampusIds: ["a"], score: 3 });
   });
 
-  test("a tie that doesn't narrow → co-Krampuses", () => {
+  test("tied again → another round over the same gifts, never two Krampuses", () => {
     const votes = everyone(round2, () => 5);
-    expect(decide(round2, votes)).toEqual({ kind: "done", krampusIds: ["a", "c"], score: 5 });
+    expect(decide(round2, votes)).toEqual({ kind: "next-round", round: 3, gifts: ["a", "c"] });
+    const round3: RoundContext = { ...round2, round: 3 };
+    expect(decide(round3, everyone(round3, (g) => (g === "c" ? 2 : 5)))).toEqual({
+      kind: "done",
+      krampusIds: ["c"],
+      score: 2,
+    });
+  });
+
+  test("a tie-break round nobody rated yet can't close", () => {
+    expect(decide(round2, [])).toEqual({ kind: "no-ratings" });
   });
 
   test("a narrowing tie → another round", () => {

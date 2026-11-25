@@ -131,11 +131,17 @@ test("a contest with stars can't be deleted until it's zeroed out", async () => 
   await expect(adminPage.getByText("Pick a contest above to award stars.")).toBeVisible();
 });
 
-test("ratings stay open until the admin closes the round; a tie goes to round 2, then the reveal", async ({ browser }) => {
+test("ratings stay open until the admin closes the round; ties re-vote until there is one Krampus", async ({ browser }) => {
   await tab("Krampus");
   await adminPage.getByRole("button", { name: /Open voting/ }).click();
   await confirmIfAsked(adminPage);
   await expect(tv.locator('[data-scene="voting"]')).toBeVisible();
+
+  // A round nobody has rated can't be closed: it stays open, nothing is lost.
+  const early = await admin.post("/api/admin/voting/close-round");
+  expect(early.status()).toBe(409);
+  expect((await early.json()).error).toMatch(/Nobody has rated/);
+  expect((await json(admin, "get", "/api/live/state")).voting).toMatchObject({ round: 1, status: "open" });
 
   // Anna rates on her phone, then changes her mind: the slider stays put.
   const anna = guests.Anna!;
@@ -186,15 +192,25 @@ test("ratings stay open until the admin closes the round; a tie goes to round 2,
     expect(me.voting.tasks.map((t: { forName: string }) => t.forName).sort(), `${name}'s round-2 gifts`).toEqual(expected);
   }
 
-  // Round 2: everyone except each gift's giver rates the tied gifts; Anna's loses.
-  for (const ctx of Object.values(everyone)) {
-    const me = await json(ctx, "get", "/api/me");
-    for (const t of me.voting.tasks) {
-      await json(ctx, "post", "/api/me/vote", { forId: t.forId, score: t.forName === "Anna" ? 1 : 6 });
+  // Rounds 2 and 3: everyone except each gift's giver rates the tied gifts.
+  const rateTied = async (score: (forName: string) => number) => {
+    for (const ctx of Object.values(everyone)) {
+      const me = await json(ctx, "get", "/api/me");
+      for (const t of me.voting.tasks) {
+        await json(ctx, "post", "/api/me/vote", { forId: t.forId, score: score(t.forName) });
+      }
     }
-  }
-  expect((await json(admin, "get", "/api/live/state")).voting.status).toBe("open");
-  await json(admin, "post", "/api/admin/voting/close-round");
+    expect((await json(admin, "get", "/api/live/state")).voting.status).toBe("open");
+    await json(admin, "post", "/api/admin/voting/close-round");
+  };
+  // Round 2 ties again: no shared title, round 3 opens over the same two gifts.
+  await rateTied(() => 5);
+  const again = await json(admin, "get", "/api/live/state");
+  expect(again.voting).toMatchObject({ round: 3, status: "open" });
+  expect(again.voting.gifts.map((g: { forName: string }) => g.forName).sort()).toEqual(tied);
+  await expect(tv.getByText(/Round 3/)).toBeVisible();
+  // Round 3: Anna's gift loses.
+  await rateTied((forName) => (forName === "Anna" ? 1 : 6));
   const pub = await json(admin, "get", "/api/live/state");
   expect(pub.voting.status).toBe("done");
   expect(pub.krampus).toBeNull(); // not before the reveal

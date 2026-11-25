@@ -5,7 +5,7 @@ import { giftVote, participant } from "../db/schema";
 import { MAX_SCORE, MIN_SCORE } from "../../shared/types";
 import { UserError } from "../errors";
 import { notify } from "../events";
-import { decide, isRoundComplete, votersFor, type RoundContext, type Vote } from "./krampus";
+import { decide, votersFor, type RoundContext, type Vote } from "./krampus";
 import { loadLoop } from "./santa";
 import { getState, patchState } from "./state";
 import { tr } from "../messages";
@@ -69,42 +69,25 @@ export function openVoting() {
 }
 
 /**
- * Closes the round if it's complete (or `force`), then opens the tie-break or
- * finishes. Votes don't call this; the admin does, through `closeRound`.
+ * The admin ends the round: the one Krampus is decided, or, while gifts still
+ * tie, the next tie-break round opens right away. Rounds never end on the last
+ * vote: everyone can keep changing their rating until the admin closes the
+ * round. A round nobody has rated yet can't be closed; it simply stays open.
  */
-export function advance(force = false) {
-  const changed = db.transaction((tx) => {
+export function closeRound() {
+  db.transaction((tx) => {
     const state = getState(tx);
-    if (state.voteStatus !== "open") {
-      if (force) throw new UserError(tr().noRoundOpen, 409);
-      return false;
-    }
+    if (state.voteStatus !== "open") throw new UserError(tr().noRoundOpen, 409);
     const ctx = roundContext(tx);
-    const votes = roundVotes(ctx.round, tx);
-    if (!force && !isRoundComplete(ctx, votes)) return false;
-    const outcome = decide(ctx, votes);
+    const outcome = decide(ctx, roundVotes(ctx.round, tx));
+    if (outcome.kind === "no-ratings") throw new UserError(tr().nothingRatedYet, 409);
     if (outcome.kind === "done") {
       patchState({ voteStatus: "done", krampusIds: outcome.krampusIds, krampusScore: outcome.score }, tx);
     } else {
-      patchState({ voteRound: outcome.round, voteGiftIds: outcome.gifts, voteStatus: "open" }, tx);
+      patchState({ voteRound: outcome.round, voteGiftIds: outcome.gifts }, tx);
     }
-    return true;
   });
-  if (changed) {
-    notify();
-    // A tie-break round can be complete the moment it opens (e.g. nobody is
-    // eligible); settle it right away instead of waiting forever.
-    if (getState().voteStatus === "open") advance(false);
-  }
-}
-
-/**
- * The admin ends the round: the Krampus is decided, or the tie-break round
- * opens right away. Rounds never end on the last vote: everyone can keep
- * changing their rating until the admin closes the round.
- */
-export function closeRound() {
-  advance(true);
+  notify();
 }
 
 /** Records `voterId`'s rating of the gift received by `forId`. */

@@ -146,7 +146,7 @@ export const adminMessages = defineMessages({
     votingReset: "Voting reset",
     voteTitle: "Secret Krampus vote",
     voteIntro:
-      "Round 1: each person rates the gift they received (½-star steps). Ratings can change until you close the round. If the lowest gifts tie, closing it opens a tie-break round where everyone votes.",
+      "Round 1: each person rates the gift they received (½-star steps). Ratings can change until you close the round. If the lowest gifts tie, closing it opens a tie-break round where everyone votes, again until one gift is lowest: there is only one Krampus.",
     openVoting: "Open voting (round 1)",
     assignSantaFirst: "Assign the Secret Santa first.",
     roundOneChip: "Round 1 · recipients rate",
@@ -384,7 +384,7 @@ export const adminMessages = defineMessages({
     votingReset: "Голосование сброшено",
     voteTitle: "Голосование за Тайного Крампуса",
     voteIntro:
-      "Раунд 1: каждый оценивает полученный подарок (шаг — ползвезды). Оценки можно менять, пока ты не закроешь раунд. Если у худших подарков ничья, после закрытия сразу откроется дополнительный раунд, где голосуют все.",
+      "Раунд 1: каждый оценивает полученный подарок (шаг — ползвезды). Оценки можно менять, пока ты не закроешь раунд. Если у худших подарков ничья, после закрытия сразу откроется дополнительный раунд, где голосуют все, и так пока не останется один худший подарок: Крампус всегда один.",
     openVoting: "Открыть голосование (раунд 1)",
     assignSantaFirst: "Сначала проведи жеребьёвку Тайного Санты.",
     roundOneChip: "Раунд 1 · оценивают получатели",

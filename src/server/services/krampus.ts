@@ -3,8 +3,8 @@
 // Round 1: each gift is rated only by its recipient.
 // Round 2+: only the gifts tied for lowest are left, and every voter except a
 //           gift's own giver rates it; the gift's score is the average.
-// Rounds continue while each one narrows the tie; if a tie-break round doesn't
-// shrink the tied set, those givers share the Krampus title.
+// There is only ever one Krampus: while gifts tie for lowest, another round
+// over just those gifts follows, as many times as it takes.
 
 export type Vote = { voterId: string; giftGiverId: string; score: number };
 
@@ -49,11 +49,6 @@ export function hasVotedAll(ctx: RoundContext, votes: readonly Vote[], voter: st
   return giftsFor(ctx, voter).every((g) => cast.has(voteKey(voter, g)));
 }
 
-export function isRoundComplete(ctx: RoundContext, votes: readonly Vote[]): boolean {
-  const cast = new Set(votes.map((v) => voteKey(v.voterId, v.giftGiverId)));
-  return ctx.gifts.every((g) => votersFor(ctx, g).every((v) => cast.has(voteKey(v, g))));
-}
-
 /** Average score per gift over the valid votes cast; unrated gifts are absent. */
 export function tally(ctx: RoundContext, votes: readonly Vote[]): Map<string, number> {
   const sums = new Map<string, { total: number; n: number }>();
@@ -69,19 +64,19 @@ export function tally(ctx: RoundContext, votes: readonly Vote[]): Map<string, nu
 }
 
 export type Outcome =
-  | { kind: "done"; krampusIds: string[]; score: number | null }
-  | { kind: "next-round"; round: number; gifts: string[] };
+  | { kind: "done"; krampusIds: [string]; score: number }
+  | { kind: "next-round"; round: number; gifts: string[] }
+  /** Nothing rated yet: the round can't be closed, it stays open. */
+  | { kind: "no-ratings" };
 
 const EPS = 1e-9;
 
-/** Decides what happens when a round closes (complete or force-closed). */
+/** Decides what happens when the admin closes a round. Missing ratings are skipped. */
 export function decide(ctx: RoundContext, votes: readonly Vote[]): Outcome {
   const scores = tally(ctx, votes);
-  if (scores.size === 0) return { kind: "done", krampusIds: [], score: null };
+  if (scores.size === 0) return { kind: "no-ratings" };
   const min = Math.min(...scores.values());
   const tied = ctx.gifts.filter((g) => scores.has(g) && Math.abs(scores.get(g)! - min) < EPS);
-  if (tied.length === 1) return { kind: "done", krampusIds: tied, score: min };
-  const narrowed = ctx.round === 1 || tied.length < ctx.gifts.length;
-  if (narrowed) return { kind: "next-round", round: ctx.round + 1, gifts: tied };
-  return { kind: "done", krampusIds: tied, score: min };
+  if (tied.length === 1) return { kind: "done", krampusIds: [tied[0]!], score: min };
+  return { kind: "next-round", round: ctx.round + 1, gifts: tied };
 }
