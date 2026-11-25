@@ -33,6 +33,11 @@ export const auth = betterAuth({
       otpLength: 6,
       expiresIn: 600,
       allowedAttempts: 5,
+      // The plugin's production default is 3 requests per minute per IP for
+      // sending a code and for signing in. At the party every guest shares the
+      // venue Wi-Fi's public IP, so the 4th login in a minute would fail.
+      // Guessing stays hopeless either way: 5 tries per 6-digit code.
+      rateLimit: { window: 60, max: 20 },
       async sendVerificationOTP({ email, otp, type }) {
         // Not awaited on purpose (Better Auth's advice, avoids timing leaks).
         if (type === "sign-in") void sendOtpEmail(email, otp);
