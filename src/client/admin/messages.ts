@@ -127,7 +127,7 @@ export const adminMessages = defineMessages({
     // Krampus
     openVotingTitle: "Open gift rating?",
     openVotingMessage:
-      "Everyone's phone shows a star slider for the gift they received. Secret Santa changes are locked while voting runs.",
+      "Everyone's phone shows a star slider for the gift they received. Ratings can change until you close the round here. Secret Santa changes are locked while voting runs.",
     openRoundOne: "Open round 1",
     votingOpened: "Voting is open 🗳️",
     closeRoundTitle: (round: number) => `Close round ${round} now?`,
@@ -146,7 +146,7 @@ export const adminMessages = defineMessages({
     votingReset: "Voting reset",
     voteTitle: "Secret Krampus vote",
     voteIntro:
-      "Round 1: each person rates the gift they received (½-star steps). If the lowest gifts tie, a tie-break round where everyone votes opens automatically.",
+      "Round 1: each person rates the gift they received (½-star steps). Ratings can change until you close the round. If the lowest gifts tie, closing it opens a tie-break round where everyone votes.",
     openVoting: "Open voting (round 1)",
     assignSantaFirst: "Assign the Secret Santa first.",
     roundOneChip: "Round 1 · recipients rate",
@@ -155,6 +155,8 @@ export const adminMessages = defineMessages({
     tiedGifts: "Tied gifts:",
     giftFor: (name: string) => `🎁 ${name}'s gift`,
     closeRoundNow: "Close round now",
+    roundStaysOpen: "The round stays open, and ratings can change, until you close it.",
+    allRated: "Everyone has rated. Close the round when you're ready.",
     noRatings: "Voting finished, but no gift got a rating — reset and try again.",
     krampusDecided: "The Krampus has been decided.",
     krampusDecidedHint: " Even you don't know who it is yet.",
@@ -364,7 +366,7 @@ export const adminMessages = defineMessages({
     // Krampus
     openVotingTitle: "Открыть оценку подарков?",
     openVotingMessage:
-      "У каждого на телефоне появятся звёзды для оценки полученного подарка. Пока идёт голосование, Тайный Санта заблокирован.",
+      "У каждого на телефоне появятся звёзды для оценки полученного подарка. Оценки можно менять, пока ты не закроешь раунд здесь. Пока идёт голосование, Тайный Санта заблокирован.",
     openRoundOne: "Открыть раунд 1",
     votingOpened: "Голосование открыто 🗳️",
     closeRoundTitle: (round: number) => `Закрыть раунд ${round} сейчас?`,
@@ -382,7 +384,7 @@ export const adminMessages = defineMessages({
     votingReset: "Голосование сброшено",
     voteTitle: "Голосование за Тайного Крампуса",
     voteIntro:
-      "Раунд 1: каждый оценивает полученный подарок (шаг — ползвезды). Если у худших подарков ничья, автоматически откроется дополнительный раунд, где голосуют все.",
+      "Раунд 1: каждый оценивает полученный подарок (шаг — ползвезды). Оценки можно менять, пока ты не закроешь раунд. Если у худших подарков ничья, после закрытия сразу откроется дополнительный раунд, где голосуют все.",
     openVoting: "Открыть голосование (раунд 1)",
     assignSantaFirst: "Сначала проведи жеребьёвку Тайного Санты.",
     roundOneChip: "Раунд 1 · оценивают получатели",
@@ -391,6 +393,8 @@ export const adminMessages = defineMessages({
     tiedGifts: "Подарки с ничьей (по получателю):",
     giftFor: (name: string) => `🎁 ${name}`,
     closeRoundNow: "Закрыть раунд сейчас",
+    roundStaysOpen: "Раунд открыт, и оценки можно менять, пока ты его не закроешь.",
+    allRated: "Все оценили. Закрывай раунд, когда захочешь.",
     noRatings: "Голосование закончилось, но ни один подарок не получил оценку — сбрось и попробуй ещё раз.",
     krampusDecided: "Крампус определён.",
     krampusDecidedHint: " Даже ты пока не знаешь, кто это.",

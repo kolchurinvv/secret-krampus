@@ -131,20 +131,47 @@ test("a contest with stars can't be deleted until it's zeroed out", async () => 
   await expect(adminPage.getByText("Pick a contest above to award stars.")).toBeVisible();
 });
 
-test("a tied Krampus vote goes to round 2 on its own, then the reveal", async () => {
+test("ratings stay open until the admin closes the round; a tie goes to round 2, then the reveal", async ({ browser }) => {
   await tab("Krampus");
   await adminPage.getByRole("button", { name: /Open voting/ }).click();
   await confirmIfAsked(adminPage);
   await expect(tv.locator('[data-scene="voting"]')).toBeVisible();
 
-  // Round 1: everyone rates the gift they got; two gifts tie for the bottom.
+  // Anna rates on her phone, then changes her mind: the slider stays put.
+  const anna = guests.Anna!;
+  const phone = await pageAs(browser, anna);
+  await phone.goto("/me");
+  const slider = phone.getByRole("slider");
+  await slider.focus();
+  await slider.press("End");
+  await expect(phone.getByText("saved ✓")).toBeVisible();
+  await slider.press("Home");
+  await slider.press("ArrowRight");
+  await expect(slider).toHaveAttribute("aria-valuenow", "2");
+  const annaScore = async () => (await json(anna, "get", "/api/me")).voting.tasks[0]?.score;
+  await expect.poll(annaScore).toBe(2);
+
+  // Round 1: everyone else rates the gift they got; Anna's and Boris's tie for the bottom.
   const everyone = { Vlad: admin, ...guests };
   const ids = Object.fromEntries((await participants()).map((p) => [p.name, p.id]));
   const low = new Set(["Anna", "Boris"]);
   for (const [name, ctx] of Object.entries(everyone)) {
+    if (name === "Anna") continue;
     await json(ctx, "post", "/api/me/vote", { forId: ids[name], score: low.has(name) ? 2 : 8 });
   }
+  // Everyone is in, but the round only ends when the admin says so.
+  const allIn = await json(admin, "get", "/api/live/state");
+  const n = Object.keys(everyone).length;
+  expect(allIn.voting).toMatchObject({ round: 1, status: "open", voters: n, votedCount: n });
+  await expect(slider).toBeVisible();
+  await watchPause(phone, 2000);
+
+  await tab("Krampus");
+  await expect(adminPage.getByText("Everyone has rated.")).toBeVisible();
+  await adminPage.getByRole("button", { name: /Close round$/ }).click();
+  await confirmIfAsked(adminPage);
   await expect(tv.getByText("It's a tie!")).toBeVisible();
+  await phone.context().close();
   await watchPause(tv, 3000);
   const tie = await json(admin, "get", "/api/live/state");
   expect(tie.voting.round).toBe(2);
@@ -166,6 +193,8 @@ test("a tied Krampus vote goes to round 2 on its own, then the reveal", async ()
       await json(ctx, "post", "/api/me/vote", { forId: t.forId, score: t.forName === "Anna" ? 1 : 6 });
     }
   }
+  expect((await json(admin, "get", "/api/live/state")).voting.status).toBe("open");
+  await json(admin, "post", "/api/admin/voting/close-round");
   const pub = await json(admin, "get", "/api/live/state");
   expect(pub.voting.status).toBe("done");
   expect(pub.krampus).toBeNull(); // not before the reveal

@@ -16,6 +16,8 @@ export function KrampusTab() {
       .sort((a, b) => Number(a.voting.voted) - Number(b.voting.voted) || a.name.localeCompare(b.name)),
   );
   const votedCount = () => voters().filter((p) => p.voting.voted).length;
+  // Rounds only end when the admin closes them; once everyone is in, that's the next step.
+  const allRated = () => voters().length > 0 && votedCount() === voters().length;
   const tiedGifts = () => live()?.voting.gifts ?? [];
 
   const open = async () => {
@@ -89,9 +91,15 @@ export function KrampusTab() {
                 </For>
               </div>
             </Show>
-            <button class="round border responsive sk-top-gap" disabled={busy()} onClick={() => void closeRound()}>
+            <p class="sk-muted small-text">{allRated() ? m().allRated : m().roundStaysOpen}</p>
+            <button
+              class="round responsive"
+              classList={{ border: !allRated(), large: allRated() }}
+              disabled={busy()}
+              onClick={() => void closeRound()}
+            >
               <i>stop_circle</i>
-              <span>{m().closeRoundNow}</span>
+              <span>{allRated() ? m().closeRound : m().closeRoundNow}</span>
             </button>
           </Match>
           <Match when={v().status === "done"}>

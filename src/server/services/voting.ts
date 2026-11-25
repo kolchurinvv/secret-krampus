@@ -68,7 +68,10 @@ export function openVoting() {
   notify();
 }
 
-/** Closes the round if it's complete (or `force`), then opens the tie-break or finishes. */
+/**
+ * Closes the round if it's complete (or `force`), then opens the tie-break or
+ * finishes. Votes don't call this; the admin does, through `closeRound`.
+ */
 export function advance(force = false) {
   const changed = db.transaction((tx) => {
     const state = getState(tx);
@@ -95,6 +98,11 @@ export function advance(force = false) {
   }
 }
 
+/**
+ * The admin ends the round: the Krampus is decided, or the tie-break round
+ * opens right away. Rounds never end on the last vote: everyone can keep
+ * changing their rating until the admin closes the round.
+ */
 export function closeRound() {
   advance(true);
 }
@@ -121,7 +129,6 @@ export function castVote(voterId: string, forId: unknown, score: unknown) {
       .run();
   });
   notify();
-  advance(false);
 }
 
 export function resetVoting() {
