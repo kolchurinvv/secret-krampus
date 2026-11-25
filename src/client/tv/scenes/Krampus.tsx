@@ -1,14 +1,17 @@
 import { createMemo, For, Show } from "solid-js";
 import type { PublicState } from "../../../shared/types";
 import { Avatar } from "../../components/Avatar";
-import { StarRating } from "../Bits";
+import { useMessages } from "../../lib/i18n";
+import { fitText, StarRating } from "../Bits";
 import { coalRain } from "../confetti";
+import { tvMessages } from "../messages";
 import { createRevealTimeline } from "./reveal";
 
 type Phase = "drumroll" | "reveal" | "gray" | "final";
 
 /** The party pooper: drum roll, a big sad face, horns, coal and a sad trombone. */
 export function KrampusScene(props: { data: PublicState; toLocal: (ms: number) => number }) {
+  const m = useMessages(tvMessages);
   const entries = createMemo(() => {
     const byId = new Map(props.data.participants.map((p) => [p.id, p]));
     return (props.data.krampus?.entries ?? []).map((e) => ({
@@ -23,7 +26,7 @@ export function KrampusScene(props: { data: PublicState; toLocal: (ms: number) =
       when={props.data.krampus}
       fallback={
         <div class="sc-kr" data-phase="drumroll">
-          <div class="sc-kr-teaser">The Krampus is being decided… 🥁</div>
+          <div class="sc-kr-teaser">{m().krampusDeciding}</div>
         </div>
       }
     >
@@ -36,6 +39,7 @@ function KrampusReveal(props: {
   entries: { id: string; name: string; avatarUrl: string | null; giftForName: string; stars: number | null }[];
   startLocal: number;
 }) {
+  const m = useMessages(tvMessages);
   const { phase, rejoined } = createRevealTimeline<Phase>({
     startLocal: props.startLocal,
     phases: [
@@ -64,7 +68,8 @@ function KrampusReveal(props: {
       <div class="sc-kr-dim" />
       <Show when={phase() === "drumroll"}>
         <div class="sc-kr-teaser">
-          And the Secret Krampus is<span class="sc-kr-dots">…</span>
+          {m().krampusDrumroll}
+          <span class="sc-kr-dots">…</span>
         </div>
       </Show>
       <Show when={phase() !== "drumroll"}>
@@ -73,8 +78,8 @@ function KrampusReveal(props: {
           <span>🎈</span>
           <span>🎈</span>
         </div>
-        <div class="sc-kr-title">
-          {multi() ? "SECRET KRAMPUSES" : "SECRET KRAMPUS"}
+        <div class="sc-kr-title" ref={fitText}>
+          {m().krampusTitle(multi())}
           <span class="sc-kr-drip" style={{ left: "9%", "--d": "0.1s", "--h": "1.2" }} />
           <span class="sc-kr-drip" style={{ left: "27%", "--d": "0.5s", "--h": "0.7" }} />
           <span class="sc-kr-drip" style={{ left: "48%", "--d": "0.25s", "--h": "1.5" }} />
@@ -89,13 +94,15 @@ function KrampusReveal(props: {
                   <Horns />
                   <Avatar name={e.name} url={e.avatarUrl} class="sc-kr-avatar" />
                 </div>
-                <div class="sc-kr-name">{e.name}</div>
+                <div class="sc-kr-name" ref={fitText}>
+                  {e.name}
+                </div>
                 <div class="sc-kr-meta">
-                  <div class="sc-kr-gift">for the gift to {e.giftForName}</div>
+                  <div class="sc-kr-gift">{m().krampusForGift(e.giftForName)}</div>
                   <Show when={e.stars !== null}>
                     <div class="sc-kr-score">
                       <StarRating stars={e.stars} />
-                      <span>{e.stars?.toFixed(e.stars % 1 === 0 ? 0 : 1)} / 5</span>
+                      <span>{m().krampusScore(e.stars!)}</span>
                     </div>
                   </Show>
                 </div>
@@ -103,7 +110,7 @@ function KrampusReveal(props: {
             )}
           </For>
         </div>
-        <div class="sc-kr-sub">🪨 Enjoy your lump of coal 🪨</div>
+        <div class="sc-kr-sub">{m().krampusCoal}</div>
       </Show>
     </div>
   );

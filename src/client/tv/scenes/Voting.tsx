@@ -1,12 +1,16 @@
 import { createMemo, createSignal, For, Match, onCleanup, onMount, Show, Switch } from "solid-js";
 import type { PublicGift, PublicState } from "../../../shared/types";
 import { Avatar } from "../../components/Avatar";
-import { AvatarWall, ProgressRing, Qr } from "../Bits";
+import { useMessages } from "../../lib/i18n";
+import { tvMessages } from "../messages";
+import { AvatarWall, fitText, ProgressRing, Qr } from "../Bits";
 import { displayHost, fitGrid } from "../util";
 
 /** Krampus voting: progress, who has voted, and the tie-break gifts. */
 export function VotingScene(props: { data: PublicState }) {
+  const m = useMessages(tvMessages);
   const v = () => props.data.voting;
+  const host = () => displayHost(props.data.publicUrl);
   const voters = createMemo(() =>
     props.data.participants.filter((p) => p.canVote).sort((a, b) => a.name.localeCompare(b.name)),
   );
@@ -20,20 +24,28 @@ export function VotingScene(props: { data: PublicState }) {
       <div class="sc-vote-head">
         <Switch>
           <Match when={isDone()}>
-            <div class="sc-vote-title">All votes are in…</div>
-            <div class="sc-vote-sub">Who is the Secret Krampus? 🥁</div>
+            <div class="sc-vote-title" ref={fitText}>
+              {m().votingDoneTitle}
+            </div>
+            <div class="sc-vote-sub">{m().votingDoneSub}</div>
           </Match>
           <Match when={isTie()}>
-            <div class="sc-vote-title">It's a tie! 😱 Round {v().round}</div>
-            <div class="sc-vote-sub">Everyone rates these gifts on {displayHost(props.data.publicUrl)}</div>
+            <div class="sc-vote-title" ref={fitText}>
+              {m().tieTitle(v().round)}
+            </div>
+            <div class="sc-vote-sub">{m().tieSub(host())}</div>
           </Match>
           <Match when={isOpen()}>
-            <div class="sc-vote-title">Rate your Secret Santa gift! 🎁</div>
-            <div class="sc-vote-sub">Open {displayHost(props.data.publicUrl)} on your phone</div>
+            <div class="sc-vote-title" ref={fitText}>
+              {m().openTitle}
+            </div>
+            <div class="sc-vote-sub">{m().openSub(host())}</div>
           </Match>
           <Match when={notStarted()}>
-            <div class="sc-vote-title">Gift voting opens soon 🎁</div>
-            <div class="sc-vote-sub">Get your phones ready</div>
+            <div class="sc-vote-title" ref={fitText}>
+              {m().soonTitle}
+            </div>
+            <div class="sc-vote-sub">{m().soonSub}</div>
           </Match>
         </Switch>
       </div>
@@ -49,7 +61,7 @@ export function VotingScene(props: { data: PublicState }) {
           <div class="sc-vote-tie">
             <GiftWall gifts={v().gifts} />
             <div class="sc-vote-tie-side">
-              <ProgressRing value={v().votedCount} total={v().voters} label="voted" />
+              <ProgressRing value={v().votedCount} total={v().voters} label={m().voted} />
               <AvatarWall people={voters()} mark={(p) => (p.voted ? "check" : "dim")} maxCellFraction={0.6} />
             </div>
           </div>
@@ -57,7 +69,7 @@ export function VotingScene(props: { data: PublicState }) {
         <Match when={true}>
           <div class="sc-vote-body">
             <div class="sc-vote-side">
-              <ProgressRing value={v().votedCount} total={v().voters} label="voted" />
+              <ProgressRing value={v().votedCount} total={v().voters} label={m().voted} />
               <Show when={isOpen()}>
                 <Qr url={props.data.publicUrl} class="sc-vote-qr" />
               </Show>
@@ -72,6 +84,7 @@ export function VotingScene(props: { data: PublicState }) {
 
 /** The tied gifts as cards sized to fill their box, whether there are 2 or 5. */
 function GiftWall(props: { gifts: PublicGift[] }) {
+  const m = useMessages(tvMessages);
   let box!: HTMLDivElement;
   const [size, setSize] = createSignal({ w: 0, h: 0 });
   onMount(() => {
@@ -103,7 +116,7 @@ function GiftWall(props: { gifts: PublicGift[] }) {
             <div class="sc-vote-gift" style={{ "animation-delay": `${i() * 120}ms` }}>
               <span class="sc-vote-gift-emoji">🎁</span>
               <Avatar name={g.forName} url={g.forAvatarUrl} class="sc-vote-gift-avatar" />
-              <div class="sc-vote-gift-name">{g.forName}'s gift</div>
+              <div class="sc-vote-gift-name">{m().giftFor(g.forName)}</div>
             </div>
           )}
         </For>

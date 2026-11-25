@@ -1,13 +1,17 @@
 import { createMemo, For, Show } from "solid-js";
 import type { PublicState } from "../../../shared/types";
 import { Avatar } from "../../components/Avatar";
+import { useMessages } from "../../lib/i18n";
+import { fitText } from "../Bits";
 import { goldBursts } from "../confetti";
+import { tvMessages } from "../messages";
 import { createRevealTimeline } from "./reveal";
 
 type Phase = "drumroll" | "reveal";
 
 /** The winner's trumpet: crowned avatar, gold rays, confetti and a fanfare. */
 export function ChampionScene(props: { data: PublicState; toLocal: (ms: number) => number }) {
+  const m = useMessages(tvMessages);
   const winners = createMemo(() => {
     const byId = new Map(props.data.participants.map((p) => [p.id, p]));
     return (props.data.champion?.ids ?? []).map((id) => ({
@@ -21,7 +25,7 @@ export function ChampionScene(props: { data: PublicState; toLocal: (ms: number) 
       when={props.data.champion}
       fallback={
         <div class="sc-ch" data-phase="drumroll">
-          <div class="sc-ch-teaser">Crowning the champion… 🥁</div>
+          <div class="sc-ch-teaser">{m().championCrowning}</div>
         </div>
       }
     >
@@ -41,6 +45,7 @@ function ChampionReveal(props: {
   stars: number;
   startLocal: number;
 }) {
+  const m = useMessages(tvMessages);
   const { phase, rejoined } = createRevealTimeline<Phase>({
     startLocal: props.startLocal,
     phases: [
@@ -64,12 +69,15 @@ function ChampionReveal(props: {
     >
       <Show when={phase() === "drumroll"}>
         <div class="sc-ch-teaser">
-          And the champion is<span class="sc-kr-dots">…</span>
+          {m().championDrumroll}
+          <span class="sc-kr-dots">…</span>
         </div>
       </Show>
       <Show when={phase() === "reveal"}>
         <div class="sc-ch-rays" aria-hidden="true" />
-        <div class="sc-ch-title">{props.winners.length > 1 ? "CHAMPIONS" : "CHAMPION"}</div>
+        <div class="sc-ch-title" ref={fitText}>
+          {m().championTitle(props.winners.length > 1)}
+        </div>
         <div class="sc-ch-entries">
           <For each={props.winners}>
             {(w) => (
@@ -80,14 +88,14 @@ function ChampionReveal(props: {
                   <span class="sc-ch-trumpet left">🎺</span>
                   <span class="sc-ch-trumpet right">🎺</span>
                 </div>
-                <div class="sc-ch-name">{w.name}</div>
+                <div class="sc-ch-name" ref={fitText}>
+                  {w.name}
+                </div>
               </div>
             )}
           </For>
         </div>
-        <div class="sc-ch-stars">
-          ⭐ {props.stars} {props.stars === 1 ? "star" : "stars"}
-        </div>
+        <div class="sc-ch-stars">{m().championStars(props.stars)}</div>
       </Show>
     </div>
   );

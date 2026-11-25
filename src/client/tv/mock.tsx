@@ -2,34 +2,69 @@
 // Loaded with a dynamic import, so it never ships in the normal code path.
 //
 // Extra params: &vote=1|2|done, &ties=N (tied gifts in round 2),
-// &then=scene@ms,... (scheduled scene switches).
+// &then=scene@ms,... (scheduled scene switches), &lang=ru|en (the language;
+// sample names and contests follow it too), &champs=N / &krampuses=N (force an
+// N-way tie in the reveals).
 // Keys: 1–6 switch scenes (title, lobby, voting, leaderboard, krampus,
 // champion) · a = award stars now · n = new sign-up · v = advance voting ·
 // r = replay the current scene · p = pause/resume auto awards.
-import { createSignal } from "solid-js";
+import { createEffect, createRoot, createSignal } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
+import { isLocale } from "../../shared/i18n";
 import { SCENES, type PublicParticipant, type PublicState, type SceneKind } from "../../shared/types";
+import { applyLocale, locale, useMessages } from "../lib/i18n";
+import { tvMessages } from "./messages";
 import { boardOrder } from "./util";
 import type { TvSource } from "./types";
 
-const NAMES = [
-  "Anna Nováková",
-  "Boris",
-  "Clara Svoboda",
-  "Dmitri",
-  "Eva",
-  "Filip Dvořák",
-  "Greta",
-  "Hugo",
-  "Ivana",
-  "Jakub",
-  "Kateřina",
-  "Leo",
-  "Marta",
-  "Nikolai",
-];
-const EXTRA = ["Olga", "Pavel", "Quentin", "Radka", "Stefan", "Tereza", "Uma", "Viktor"];
-const CONTESTS = ["Ugly sweater", "Carol karaoke", "Gingerbread build", "Charades", "Snowball toss"];
+const SAMPLES = {
+  en: {
+    names: [
+      "Anna Nováková",
+      "Boris",
+      "Clara Svoboda",
+      "Dmitri",
+      "Eva",
+      "Filip Dvořák",
+      "Greta",
+      "Hugo",
+      "Ivana",
+      "Jakub",
+      "Kateřina",
+      "Leo",
+      "Marta",
+      "Nikolai",
+    ],
+    extra: ["Olga", "Pavel", "Quentin", "Radka", "Stefan", "Tereza", "Uma", "Viktor"],
+    contests: ["Ugly sweater", "Carol karaoke", "Gingerbread build", "Charades", "Snowball toss"],
+    announcement: "Dinner is served at 19:30 🍽️",
+  },
+  ru: {
+    names: [
+      "Анна Новикова",
+      "Борис",
+      "Клара Смирнова",
+      "Дмитрий",
+      "Ева",
+      "Филипп Дворжак",
+      "Грета",
+      "Гоша",
+      "Ирина",
+      "Яков",
+      "Екатерина",
+      "Лёва",
+      "Марта",
+      "Николай",
+    ],
+    extra: ["Ольга", "Павел", "Кирилл", "Рада", "Степан", "Тереза", "Ульяна", "Виктор"],
+    contests: ["Самый страшный свитер", "Караоке колядок", "Пряничный домик", "Крокодил", "Снежки"],
+    announcement: "Ужин в 19:30 🍽️",
+  },
+};
+let NAMES = SAMPLES.en.names;
+let EXTRA = SAMPLES.en.extra;
+let CONTESTS = SAMPLES.en.contests;
+let ANNOUNCEMENT = SAMPLES.en.announcement;
 const EMOJI = ["🦌", "⛄", "🎅", "🧝", "🍪", "🐧", "🎄", "🔔"];
 
 function fakeAvatar(name: string, i: number) {
@@ -54,6 +89,8 @@ function person(name: string, i: number, createdAt: number): PublicParticipant {
 let state: PublicState;
 let apply: (next: PublicState) => void = () => {};
 let tieCount = 2;
+let forcedChamps = 0;
+let forcedKrampuses = 0;
 const [paused, setPaused] = createSignal(false);
 export { paused };
 
@@ -64,17 +101,26 @@ function commit() {
 
 export function setScene(kind: SceneKind) {
   if (kind === "krampus") {
-    const loser = state.participants[Math.floor(Math.random() * state.participants.length)]!;
-    const other = state.participants.find((p) => p.id !== loser.id)!;
-    state.krampus = { entries: [{ id: loser.id, giftForName: other.name, stars: 1.5 }] };
+    const n = Math.max(1, forcedKrampuses);
+    const losers = [...state.participants].sort(() => Math.random() - 0.5).slice(0, n);
+    state.krampus = {
+      entries: losers.map((loser) => ({
+        id: loser.id,
+        giftForName: state.participants.find((p) => p.id !== loser.id)!.name,
+        stars: 1.5,
+      })),
+    };
     state.voting = { ...state.voting, status: "done" };
   }
   if (kind === "champion") {
     const sorted = [...state.participants].sort(boardOrder);
     const top = sorted[0]!.stars;
-    state.champion = { ids: sorted.filter((p) => p.stars === top).map((p) => p.id), stars: top };
+    const ids = forcedChamps
+      ? [...state.participants].sort((a, b) => b.name.length - a.name.length).slice(0, forcedChamps).map((p) => p.id)
+      : sorted.filter((p) => p.stars === top).map((p) => p.id);
+    state.champion = { ids, stars: top };
   }
-  state.scene = { kind, startedAt: Date.now(), message: kind === "title" ? "Dinner is served at 19:30 🍽️" : "" };
+  state.scene = { kind, startedAt: Date.now(), message: kind === "title" ? ANNOUNCEMENT : "" };
   commit();
 }
 
@@ -144,15 +190,33 @@ export function replay() {
 }
 
 export function createMockSource(params: URLSearchParams): TvSource {
+  // &lang=ru|en wins over whatever the (absent or real) live feed says: the
+  // app root applies PublicState.locale whenever it arrives, so re-apply ours.
+  const lang = params.get("lang");
+  if (isLocale(lang)) {
+    applyLocale(lang);
+    createRoot(() =>
+      createEffect(() => {
+        if (locale() !== lang) applyLocale(lang);
+      }),
+    );
+  }
+  const sample = SAMPLES[locale()];
+  NAMES = sample.names;
+  EXTRA = sample.extra;
+  CONTESTS = sample.contests;
+  ANNOUNCEMENT = sample.announcement;
   const scene = params.get("scene");
   tieCount = Math.min(8, Math.max(2, Number(params.get("ties")) || 2));
+  forcedChamps = Math.min(8, Number(params.get("champs")) || 0);
+  forcedKrampuses = Math.min(8, Number(params.get("krampuses")) || 0);
   const now = Date.now();
   const kind = (SCENES as readonly string[]).includes(scene ?? "") ? (scene as SceneKind) : "leaderboard";
   state = {
     version: 1,
     serverNow: now,
     publicUrl: "https://secretkrampus.party",
-    locale: "ru",
+    locale: locale(),
     scene: { kind: "title", startedAt: now, message: "" },
     santa: { pool: NAMES.length, assigned: NAMES.length, waiting: 0 },
     participants: NAMES.map((n, i) => person(n, i, now - (NAMES.length - i) * 60_000)),
@@ -205,9 +269,11 @@ export function createMockSource(params: URLSearchParams): TvSource {
 }
 
 export function MockHud() {
+  const m = useMessages(tvMessages);
   return (
     <div class="tv-mock-hud">
-      MOCK{paused() ? " (paused)" : ""} · 1–6 scenes · a award · n new · v voting · r replay · p pause
+      {m().mockLabel}
+      {paused() ? m().mockPaused : ""} · {m().mockKeys}
     </div>
   );
 }

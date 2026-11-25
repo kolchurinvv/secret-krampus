@@ -1,5 +1,6 @@
 import { createEffect, createMemo, createSignal, For, Match, on, onCleanup, onMount, Show, Switch, untrack } from "solid-js";
 import type { SceneKind } from "../../shared/types";
+import { useMessages } from "../lib/i18n";
 import { Snow } from "./Bits";
 import { attachConfetti, clearConfetti } from "./confetti";
 import { SceneActive } from "./scene-context";
@@ -9,6 +10,7 @@ import { LeaderboardScene } from "./scenes/Leaderboard";
 import { LobbyScene } from "./scenes/Lobby";
 import { TitleScene } from "./scenes/Title";
 import { VotingScene } from "./scenes/Voting";
+import { tvMessages } from "./messages";
 import { unlockAudio } from "./sfx";
 import type { TvSource } from "./types";
 import "./tv.css";
@@ -22,6 +24,7 @@ type Layer = { key: string; kind: SceneKind; leaving: () => boolean; setLeaving:
  * fullscreen and unlocks sound.
  */
 export function TvShow(props: { source: TvSource; preview: boolean }) {
+  const m = useMessages(tvMessages);
   const [started, setStarted] = createSignal(props.preview);
   const [idle, setIdle] = createSignal(false);
   let canvas!: HTMLCanvasElement;
@@ -60,15 +63,15 @@ export function TvShow(props: { source: TvSource; preview: boolean }) {
   return (
     <div class="tv" classList={{ "tv--idle": idle(), "tv--preview": props.preview }}>
       <Snow />
-      <Show when={props.source.data} fallback={<div class="tv-connecting">Connecting to the North Pole…</div>}>
+      <Show when={props.source.data} fallback={<div class="tv-connecting">{m().connecting}</div>}>
         <SceneStage source={props.source} />
       </Show>
       <canvas class="tv-confetti" ref={canvas} />
       <Show when={!started()}>
         <button class="tv-start" onClick={() => void start()} autofocus>
           <span class="tv-start-emoji">😈🎄</span>
-          <span class="tv-start-text">Click to start the show</span>
-          <span class="tv-start-hint">fullscreen + sound</span>
+          <span class="tv-start-text">{m().startShow}</span>
+          <span class="tv-start-hint">{m().startHint}</span>
         </button>
       </Show>
     </div>

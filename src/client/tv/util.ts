@@ -41,10 +41,10 @@ export function displayHost(url: string) {
   return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
 }
 
-/** Joins names as "Anna, Boris & Clara". */
-export function joinNames(names: string[]) {
+/** Joins names as "Anna, Boris & Clara" (or "Анна, Борис и Клара" with and = "и"). */
+export function joinNames(names: string[], and = "&") {
   if (names.length <= 1) return names[0] ?? "";
-  return `${names.slice(0, -1).join(", ")} & ${names[names.length - 1]}`;
+  return `${names.slice(0, -1).join(", ")} ${and} ${names[names.length - 1]}`;
 }
 
 /** How long ago (ms) a server timestamp was, on this browser's clock; never negative. */

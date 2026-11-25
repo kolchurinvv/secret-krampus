@@ -1,12 +1,15 @@
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import type { PublicParticipant, PublicState } from "../../../shared/types";
 import { Avatar } from "../../components/Avatar";
+import { useMessages } from "../../lib/i18n";
 import { RollingNumber } from "../Bits";
 import { enter, flip, layoutPos, type Pos } from "../flip";
+import { tvMessages } from "../messages";
 import { boardOrder, competitionRanks, joinNames } from "../util";
 
 /** Live 3D leaderboard. Overtakes slide over the cards they pass. */
 export function LeaderboardScene(props: { data: PublicState }) {
+  const m = useMessages(tvMessages);
   const sorted = createMemo(() => [...props.data.participants].sort(boardOrder));
   const ranks = createMemo(() => competitionRanks(sorted()));
   const cols = createMemo(() => {
@@ -70,10 +73,10 @@ export function LeaderboardScene(props: { data: PublicState }) {
       <div class="sc-lb-head" classList={{ "has-banner": !!banner() }}>
         <div class="sc-lb-head-content">
           {/* Ranked by total stars across every contest; "Now playing" only labels the current one. */}
-          <div class="sc-lb-title">🏆 Overall standings</div>
+          <div class="sc-lb-title">{m().standings}</div>
           <Show when={contestName()}>
             <div class="sc-lb-contest">
-              Now playing: <strong>{contestName()}</strong>
+              {m().nowPlaying} <strong>{contestName()}</strong>
             </div>
           </Show>
         </div>
@@ -156,6 +159,7 @@ function LeaderCard(props: { p: PublicParticipant; rank: number; ref: (el: HTMLE
 
 /** "⭐ Carol karaoke — Anna, Boris & Clara" for a few seconds after each award. */
 function createAwardBanner(data: () => PublicState) {
+  const m = useMessages(tvMessages);
   const [banner, setBanner] = createSignal<{ key: string; title: string; names: string } | null>(null);
   let timer: ReturnType<typeof setTimeout> | undefined;
   createEffect(
@@ -167,7 +171,7 @@ function createAwardBanner(data: () => PublicState) {
         const byId = new Map(untrack(() => data().participants).map((p) => [p.id, p.name]));
         const names = award.participantIds.map((id) => byId.get(id)).filter((n): n is string => !!n);
         if (names.length === 0) return;
-        setBanner({ key: batchId, title: award.contestName ?? "+1 star", names: joinNames(names) });
+        setBanner({ key: batchId, title: award.contestName ?? m().oneStar, names: joinNames(names, m().and) });
         clearTimeout(timer);
         timer = setTimeout(() => setBanner(null), 6000);
       },

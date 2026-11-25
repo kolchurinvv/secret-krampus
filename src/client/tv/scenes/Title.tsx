@@ -1,10 +1,14 @@
 import { For, Show } from "solid-js";
 import type { PublicState } from "../../../shared/types";
 import { Avatar } from "../../components/Avatar";
+import { useMessages } from "../../lib/i18n";
+import { tvMessages } from "../messages";
+import { fitText } from "../Bits";
 import { displayHost } from "../util";
 
 /** Default scene: the party name, the admin's announcement, a row of faces. */
 export function TitleScene(props: { data: PublicState }) {
+  const m = useMessages(tvMessages);
   const people = () => props.data.participants;
   return (
     <div class="sc-title">
@@ -13,7 +17,9 @@ export function TitleScene(props: { data: PublicState }) {
         <span>😈</span>
         <span>🎁</span>
       </div>
-      <div class="sc-title-main">Secret Krampus</div>
+      <div class="sc-title-main" ref={fitText}>
+        {m().appTitle}
+      </div>
       <Show
         when={props.data.scene.message.trim()}
         fallback={<div class="sc-title-sub">{displayHost(props.data.publicUrl)}</div>}

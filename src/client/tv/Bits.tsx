@@ -6,6 +6,42 @@ import { Avatar } from "../components/Avatar";
 import { fitGrid } from "./util";
 
 /** Gentle CSS snowfall behind everything. */
+/**
+ * Keeps a display title on one line, shrinking its font only if it would
+ * overflow its container. Russian copy runs 20–30% longer than English and the
+ * display font may change, so this measures instead of guessing. Use as
+ * `ref={fitText}`; it re-fits on resize, text changes and font loads.
+ */
+export function fitText(el: HTMLElement) {
+  el.classList.add("tv-fit");
+  let raf = 0;
+  const fit = () => {
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      el.style.fontSize = "";
+      const avail = el.clientWidth;
+      const need = el.scrollWidth;
+      if (avail > 0 && need > avail) {
+        const base = Number.parseFloat(getComputedStyle(el).fontSize);
+        el.style.fontSize = `${Math.floor(base * (avail / need) * 0.97)}px`;
+      }
+    });
+  };
+  const ro = new ResizeObserver(fit);
+  ro.observe(el);
+  if (el.parentElement) ro.observe(el.parentElement);
+  const mo = new MutationObserver(fit);
+  mo.observe(el, { childList: true, characterData: true, subtree: true });
+  document.fonts?.addEventListener("loadingdone", fit);
+  void document.fonts?.ready.then(fit);
+  onCleanup(() => {
+    cancelAnimationFrame(raf);
+    ro.disconnect();
+    mo.disconnect();
+    document.fonts?.removeEventListener("loadingdone", fit);
+  });
+}
+
 export function Snow(props: { count?: number }) {
   const flakes = Array.from({ length: props.count ?? 70 }, () => ({
     left: Math.random() * 100,

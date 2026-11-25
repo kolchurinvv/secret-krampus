@@ -950,7 +950,8 @@
 }
 .sc-kr-title {
   position: relative;
-  font-family: var(--sk-display);
+  /* English keeps Mountains of Christmas; Russian drips (Rubik Wet Paint). */
+  font-family: var(--sk-krampus);
   font-weight: 700;
   font-size: calc(8 * var(--u));
   line-height: 1;
@@ -1265,4 +1266,44 @@
   align-items: center;
   justify-content: center;
   gap: calc(0.6 * var(--u)) calc(2 * var(--u));
+}
+
+/* ---------------------------------------------------------------------------
+   Copy that runs long (Russian is 20–30% longer than English).
+   --------------------------------------------------------------------------- */
+
+/* Single-line display titles: fitText() shrinks the font only when needed. */
+.tv-fit {
+  white-space: nowrap;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Several tied Krampuses or champions: each takes an equal share of the
+   width, names shrink with the count and wrap inside their entry. */
+.sc-kr-entries,
+.sc-ch-entries {
+  box-sizing: border-box;
+  width: 100%;
+  padding-inline: calc(3 * var(--u));
+  gap: calc(6 * var(--u) * min(1, 2 / var(--n, 1)));
+}
+/* Equal shares (not avatar-wide), so a name has its whole share to stay on one line. */
+.sc-kr-entry,
+.sc-ch-entry {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: calc(80 * var(--u));
+}
+/* Names stay on one line (fitText shrinks a long one to its share). */
+.sc-kr-name,
+.sc-ch-name {
+  text-align: center;
+}
+.sc-ch-name {
+  font-size: calc(5 * var(--u) * min(1, 2.4 / var(--n, 1)));
+}
+.sc-kr-name {
+  font-size: calc(4.4 * var(--u) * min(1, 2.4 / var(--n, 1)));
 }
