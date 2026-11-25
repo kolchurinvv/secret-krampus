@@ -72,6 +72,11 @@ export async function pageAs(browser: Browser, api: APIRequestContext, viewport 
   return context.newPage();
 }
 
+/** In `just e2e-watch`, holds the screen so a person can see the moment. */
+export async function watchPause(page: Page, ms: number) {
+  if (process.env.E2E_WATCH) await page.waitForTimeout(ms);
+}
+
 /** Clicks the confirm button of the app's confirm dialog if one opens. */
 export async function confirmIfAsked(page: Page) {
   const dialog = page.locator("dialog.sk-confirm.active");

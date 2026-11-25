@@ -71,6 +71,10 @@ just dev               # API on :3000 + Vite on :5173 — open http://localhost:
   mailer, without loading `.env`, so it never touches your running server or
   your Resend/R2 keys. `just e2e --headed` shows the browser; failures leave
   screenshots and traces in `.e2e/results/`.
+- `just e2e-watch` runs the same suite in a visible Chromium, slowed down and
+  pausing on the TV's big moments, so you can watch the whole party play out:
+  the draw, a late joiner, stars climbing the leaderboard, the tie-break, the
+  Krampus reveal and the champion.
 
 ## Where the keys go
 

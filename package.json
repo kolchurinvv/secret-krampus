@@ -12,7 +12,8 @@
     "db:generate": "drizzle-kit generate",
     "seed": "bun scripts/seed.ts",
     "test:e2e": "bash scripts/playwright-runner.sh test",
-    "test:e2e:headed": "bash scripts/playwright-runner.sh test --headed"
+    "test:e2e:headed": "bash scripts/playwright-runner.sh test --headed",
+    "test:e2e:watch": "E2E_WATCH=1 bash scripts/playwright-runner.sh test"
   },
   "dependencies": {
     "@fontsource/mountains-of-christmas": "^5.3.0",

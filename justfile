@@ -42,6 +42,10 @@ test:
 e2e *args:
     bash scripts/playwright-runner.sh test {{args}}
 
+# Watch the whole party play out in a visible Chromium (slowed down, pauses on the TV).
+e2e-watch *args:
+    E2E_WATCH=1 bash scripts/playwright-runner.sh test {{args}}
+
 # Type-check the whole project (server, client, scripts).
 typecheck:
     bun run typecheck

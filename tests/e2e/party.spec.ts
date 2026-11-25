@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { apiUser, confirmIfAsked, json, mails, pageAs } from "./helpers";
+import { apiUser, confirmIfAsked, json, mails, pageAs, watchPause } from "./helpers";
 
 // The whole evening, in order, against one server: sign-ups, the draw, a late
 // joiner, contest stars on the TV, Krampus voting with a tie-break, the reveal.
@@ -104,6 +104,7 @@ test("stars need a contest, climb the TV leaderboard, and can be taken back", as
     .poll(async () => Object.fromEntries((await participants()).map((p) => [p.name, p.stars])))
     .toMatchObject({ Clara: 2, Dmitri: 0 });
   await expect(tv.locator(".sc-lb-name").first()).toHaveText("Clara");
+  await watchPause(tv, 3000);
   const lb = await json(admin, "get", "/api/live/state");
   expect(lb.lastAward.contestName).toBe("Ugly sweater");
 });
@@ -144,6 +145,7 @@ test("a tied Krampus vote goes to round 2 on its own, then the reveal", async ()
     await json(ctx, "post", "/api/me/vote", { forId: ids[name], score: low.has(name) ? 2 : 8 });
   }
   await expect(tv.getByText("It's a tie!")).toBeVisible();
+  await watchPause(tv, 3000);
   const tie = await json(admin, "get", "/api/live/state");
   expect(tie.voting.round).toBe(2);
   expect(tie.voting.gifts.map((g: { forName: string }) => g.forName).sort()).toEqual(["Anna", "Boris"]);
@@ -176,4 +178,5 @@ test("a tied Krampus vote goes to round 2 on its own, then the reveal", async ()
   expect(revealed.krampus.entries[0].giftForName).toBe("Anna");
   await expect(tv.locator('[data-scene="krampus"]')).toBeVisible();
   await expect(tv.getByText(/SECRET KRAMPUS/)).toBeVisible({ timeout: 10_000 });
+  await watchPause(tv, 8000);
 });
