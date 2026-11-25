@@ -92,7 +92,8 @@ real values; `.env.example` lists every variable.
 ## Deploying to k3s-lab
 
 The manifests live in the infra repo:
-`~/Dev_Projects/k3s-migration/infra/secret-krampus/` (Kustomize). The image is built
+`~/Dev_Projects/k3s-migration/infra/secret-krampus/krampus.yaml`, one multi-document
+file like the other services there. The image is built
 here and pushed to GHCR:
 
 ```bash
@@ -118,13 +119,13 @@ just push     # builds linux/amd64, pushes :<git sha> and :latest
 4. **Resend** — add the domain `secretkrampus.party` and use *Sign in to Cloudflare*
    auto-setup (MX + SPF on `send`, DKIM on `resend._domainkey`, all DNS-only). Make sure
    the API key may send from this domain.
-5. **Cluster** (from the k3s-migration repo; exact commands in
-   `infra/secret-krampus/kustomization.yaml`):
+5. **Cluster** (from the k3s-migration repo; exact commands in the header of
+   `infra/secret-krampus/krampus.yaml`):
    ```bash
-   kubectl apply -f infra/secret-krampus/namespace.yaml
+   kubectl create namespace secret-krampus
    kubectl create secret docker-registry ghcr-pull -n secret-krampus ...
    kubectl create secret generic secret-krampus-env -n secret-krampus --from-env-file=...
-   kubectl apply -k infra/secret-krampus
+   kubectl apply -f infra/secret-krampus/krampus.yaml
    ```
 
 Updating later: `just push`, then
