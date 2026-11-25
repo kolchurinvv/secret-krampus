@@ -1,5 +1,6 @@
 // Outgoing email through Resend, or the server console when no API key is set
 // (local dev: the login code shows up in the terminal).
+import { appendFileSync } from "node:fs";
 import { Resend } from "resend";
 import { env } from "../env";
 
@@ -23,6 +24,7 @@ function layout(title: string, body: string) {
 async function sendOne(to: string, subject: string, html: string, text: string) {
   if (!resend) {
     console.log(`\n📧 [console mailer] to=${to}\n   subject: ${subject}\n   ${text.replace(/\n/g, "\n   ")}\n`);
+    if (env.mailLog) appendFileSync(env.mailLog, JSON.stringify({ to, subject, text, at: Date.now() }) + "\n");
     return;
   }
   const { error } = await resend.emails.send({ from: env.emailFrom, to, subject, html, text });

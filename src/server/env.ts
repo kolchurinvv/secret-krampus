@@ -27,6 +27,8 @@ export const env = {
     .filter(Boolean),
   resendApiKey: opt("RESEND_API_KEY"),
   emailFrom: opt("EMAIL_FROM") ?? "Secret Krampus <krampus@secretkrampus.party>",
+  /** Console-mailer only: also append each email as a JSON line here (the e2e tests read login codes from it). */
+  mailLog: opt("MAIL_LOG"),
   r2: {
     endpoint: opt("R2_ENDPOINT"),
     bucket: opt("R2_BUCKET"),
