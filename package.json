@@ -16,7 +16,9 @@
     "test:e2e:watch": "E2E_WATCH=1 bash scripts/playwright-runner.sh test"
   },
   "dependencies": {
+    "@fontsource/kurale": "^5.3.0",
     "@fontsource/mountains-of-christmas": "^5.3.0",
+    "@fontsource/rubik-wet-paint": "^5.3.0",
     "@hono/bun": "^1.0.1",
     "@solidjs/router": "^1.0.3",
     "beercss": "^5.0.3",

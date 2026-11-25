@@ -4,7 +4,12 @@
   --sk-red: #b71c1c;
   --sk-green: #1b5e20;
   --sk-gold: #ffca28;
-  --sk-display: "Mountains of Christmas", "Georgia", serif;
+  /* Festive display face. Latin glyphs come from Mountains of Christmas;
+     it has no Cyrillic, so Russian falls through, glyph by glyph, to Kurale
+     (a storybook serif). */
+  --sk-display: "Mountains of Christmas", "Kurale", "Georgia", serif;
+  /* The Krampus reveal title: same in English, dripping paint in Russian. */
+  --sk-krampus: "Mountains of Christmas", "Rubik Wet Paint", "Kurale", serif;
 }
 
 .sk-display {
