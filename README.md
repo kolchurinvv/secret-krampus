@@ -65,6 +65,12 @@ just dev               # API on :3000 + Vite on :5173 — open http://localhost:
 - `just test` runs the unit tests, `just typecheck` type-checks everything, and
   `just db-generate <name>` creates a migration after editing
   `src/server/db/schema.ts`. `just db` opens the database in sqlite3.
+- `just e2e` runs the Playwright suite in Chromium (browsers come from the
+  flake, nothing is downloaded). It builds into `.e2e/` and starts its own
+  production-mode server on :4173 with a throwaway database and the console
+  mailer, without loading `.env`, so it never touches your running server or
+  your Resend/R2 keys. `just e2e --headed` shows the browser; failures leave
+  screenshots and traces in `.e2e/results/`.
 
 ## Where the keys go
 
