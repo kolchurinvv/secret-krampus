@@ -7,6 +7,7 @@ import {
   award,
   createContest,
   deleteContest,
+  removeFromEach,
   removeOne,
   setCount,
   setCurrentContest,
@@ -89,6 +90,10 @@ export const admin = new Hono<AppEnv>()
     const b = await body(c.req);
     removeOne(b.participantId);
     return c.json(ok);
+  })
+  .post("/stars/remove", async (c) => {
+    const b = await body(c.req);
+    return c.json({ ok: true, ...removeFromEach(b.participantIds) });
   })
   .post("/stars/undo-last", (c) => {
     undoLast();

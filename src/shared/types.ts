@@ -184,6 +184,7 @@ export type ApiError = { error: string };
  *   DELETE /api/admin/contests/:id
  *   POST   /api/admin/contests/current        { id: string | null }
  *   POST   /api/admin/stars/award             { participantIds: string[], contestId?: string | null }  (omitted → current contest, null → none)
+ *   POST   /api/admin/stars/remove            { participantIds: string[] } → { ok, removed, skipped }  (−1 each; no stars → skipped)
  *   POST   /api/admin/stars/remove-one        { participantId }
  *   POST   /api/admin/stars/undo-last
  *   POST   /api/admin/stars/set               { participantId, count }

@@ -107,6 +107,19 @@ export function ContestsTab() {
     if (r) setSelected(new Set<string>());
   };
 
+  // −1 to fix a mistaken award; people already at 0 are skipped.
+  const selectedWithStars = () => people().filter((p) => selected().has(p.id) && p.stars > 0);
+  const takeStar = async () => {
+    const losers = selectedWithStars();
+    if (losers.length === 0) return;
+    const names = losers.map((p) => p.name);
+    const r = await run(
+      () => api.post("/api/admin/stars/remove", { participantIds: losers.map((p) => p.id) }),
+      `−1 ⭐ ${names.length <= 3 ? names.join(", ") : plural(names.length, "person", "people")}`,
+    );
+    if (r) setSelected(new Set<string>());
+  };
+
   const createContest = async (e: Event) => {
     e.preventDefault();
     const name = newName().trim();
@@ -305,6 +318,14 @@ export function ContestsTab() {
           </div>
           <button class="transparent" onClick={() => setSelected(new Set<string>())}>
             Clear
+          </button>
+          <button
+            class="round large border"
+            disabled={busy() || selectedWithStars().length === 0}
+            title="Take one star from each selected person (anyone at 0 is skipped)"
+            onClick={() => void takeStar()}
+          >
+            <span>−1 ⭐</span>
           </button>
           <button class="round large" disabled={busy()} onClick={() => void award()}>
             <span>+1 ⭐</span>

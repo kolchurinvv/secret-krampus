@@ -65,6 +65,30 @@ export function removeOne(participantId: unknown) {
   notify();
 }
 
+/**
+ * −1 star for each of `ids` who has one (their most recent star), to fix a
+ * mistaken award. People with no stars are skipped.
+ */
+export function removeFromEach(ids: unknown) {
+  if (!Array.isArray(ids) || ids.length === 0 || !ids.every((i) => typeof i === "string")) {
+    throw new UserError("Pick at least one person.");
+  }
+  const unique = [...new Set(ids as string[])];
+  const drop = unique.flatMap((participantId) => {
+    const last = db
+      .select({ id: star.id })
+      .from(star)
+      .where(eq(star.participantId, participantId))
+      .orderBy(desc(star.id))
+      .get();
+    return last ? [last.id] : [];
+  });
+  if (drop.length === 0) throw new UserError("None of them have stars to take away.");
+  db.delete(star).where(inArray(star.id, drop)).run();
+  notify();
+  return { removed: drop.length, skipped: unique.length - drop.length };
+}
+
 export function lastBatch() {
   const row = db.select({ batch: star.awardBatchId }).from(star).orderBy(desc(star.id)).get();
   if (!row) return null;
