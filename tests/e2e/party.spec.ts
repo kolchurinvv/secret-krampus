@@ -180,3 +180,21 @@ test("a tied Krampus vote goes to round 2 on its own, then the reveal", async ()
   await expect(tv.getByText(/SECRET KRAMPUS/)).toBeVisible({ timeout: 10_000 });
   await watchPause(tv, 8000);
 });
+
+test("the champion is crowned on the TV", async () => {
+  await json(admin, "post", "/api/admin/contests", { name: "Snowball toss", kind: "individual" });
+  const boris = (await participants()).find((p) => p.name === "Boris")!;
+  await json(admin, "post", "/api/admin/stars/award", { participantIds: [boris.id] }); // current contest
+  await json(admin, "post", "/api/admin/scene", { kind: "leaderboard" });
+  await expect(tv.locator(".sc-lb-name").first()).toHaveText("Boris");
+  await watchPause(tv, 2000);
+
+  await tab("Contests");
+  await adminPage.getByRole("button", { name: /Crown champion/ }).click();
+  await confirmIfAsked(adminPage);
+  await expect(tv.locator('[data-scene="champion"]')).toBeVisible();
+  const pub = await json(admin, "get", "/api/live/state");
+  expect(pub.champion).toEqual({ ids: [boris.id], stars: 1 });
+  await expect(tv.locator('[data-scene="champion"]').getByText("Boris")).toBeVisible({ timeout: 10_000 });
+  await watchPause(tv, 8000);
+});
