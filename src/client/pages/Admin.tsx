@@ -1,5 +1,6 @@
 import { A, useNavigate } from "@solidjs/router";
-import { createEffect, createSignal, For, Match, Switch } from "solid-js";
+import { createEffect, createSignal, For, Match, Show, Switch } from "solid-js";
+import { LOCALES, type Locale } from "../../shared/i18n";
 import type { AdminState } from "../../shared/types";
 import { ContestsTab } from "../admin/ContestsTab";
 import { AdminContext, createRunner } from "../admin/context";
@@ -7,16 +8,19 @@ import { KrampusTab } from "../admin/KrampusTab";
 import { PeopleTab } from "../admin/PeopleTab";
 import { SantaTab } from "../admin/SantaTab";
 import { TvTab } from "../admin/TvTab";
+import { adminMessages, type AdminMessages } from "../admin/messages";
 import { FeedbackHost } from "../components/Feedback";
 import { createLiveQuery } from "../components/liveQuery";
+import { api } from "../lib/api";
+import { locale, useMessages } from "../lib/i18n";
 import "../styles/app.css";
 
 const TABS = [
-  { id: "people", icon: "group", label: "People" },
-  { id: "santa", icon: "redeem", label: "Santa" },
-  { id: "krampus", icon: "sentiment_very_dissatisfied", label: "Krampus" },
-  { id: "contests", icon: "emoji_events", label: "Contests" },
-  { id: "tv", icon: "tv", label: "TV" },
+  { id: "people", icon: "group", label: (m: AdminMessages) => m.tabPeople },
+  { id: "santa", icon: "redeem", label: (m: AdminMessages) => m.tabSanta },
+  { id: "krampus", icon: "sentiment_very_dissatisfied", label: (m: AdminMessages) => m.tabKrampus },
+  { id: "contests", icon: "emoji_events", label: (m: AdminMessages) => m.tabContests },
+  { id: "tv", icon: "tv", label: (m: AdminMessages) => m.tabTv },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -37,6 +41,14 @@ export default function Admin() {
   const q = createLiveQuery<AdminState>("/api/admin/state");
   const { run, busy } = createRunner(q.refetch);
   const [tab, setTab] = createSignal<TabId>(loadTab());
+  const m = useMessages(adminMessages);
+  /** The app-wide language: what the live state says, else what this tab is showing. */
+  const currentLocale = () => q.live.data?.locale ?? locale();
+  const switchLocale = (l: Locale) => {
+    if (l === currentLocale()) return;
+    // Toast in the language being switched to.
+    void run(() => api.post("/api/admin/locale", { locale: l }), adminMessages[l].languageSwitched);
+  };
 
   const selectTab = (id: TabId) => {
     setTab(id);
@@ -62,16 +74,40 @@ export default function Admin() {
     <main class="sk-page sk-admin">
       <nav class="sk-topbar">
         <div class="max">
-          <div class="sk-display sk-topbar-title">Krampus HQ</div>
+          <div class="sk-display sk-topbar-title">{m().hqTitle}</div>
           <div class="sk-muted small-text">
-            {q.live.connected() ? "● live" : "○ reconnecting…"}
-            {q.data() ? ` · ${q.data()!.emailMode === "console" ? "emails → console" : "Resend"} · ${q.data()!.storageMode === "local" ? "local avatars" : "R2"}` : ""}
+            {q.live.connected() ? m().statusLive : m().statusReconnecting}
+            {q.data()
+              ? ` · ${q.data()!.emailMode === "console" ? m().statusEmailsConsole : m().statusEmailsResend} · ${q.data()!.storageMode === "local" ? m().statusAvatarsLocal : m().statusAvatarsR2}`
+              : ""}
           </div>
         </div>
-        <a class="button circle transparent" href="/live" target="_blank" rel="noopener" title="Open TV page" aria-label="Open TV page">
+        <Show when={q.data()}>
+          <nav class="no-space sk-lang" role="group" aria-label={m().language} title={m().languageTitle}>
+            <For each={LOCALES}>
+              {(l, i) => (
+                <button
+                  type="button"
+                  class="border small"
+                  classList={{
+                    fill: currentLocale() === l,
+                    "left-round": i() === 0,
+                    "right-round": i() === LOCALES.length - 1,
+                  }}
+                  aria-pressed={currentLocale() === l}
+                  disabled={busy()}
+                  onClick={() => switchLocale(l)}
+                >
+                  {l.toUpperCase()}
+                </button>
+              )}
+            </For>
+          </nav>
+        </Show>
+        <a class="button circle transparent" href="/live" target="_blank" rel="noopener" title={m().openTvPage} aria-label={m().openTvPage}>
           <i>tv</i>
         </a>
-        <A href="/me" class="button circle transparent" title="My page" aria-label="My page">
+        <A href="/me" class="button circle transparent" title={m().myPage} aria-label={m().myPage}>
           <i>person</i>
         </A>
       </nav>
@@ -94,7 +130,7 @@ export default function Admin() {
                       }}
                     >
                       <i>{t.icon}</i>
-                      <span>{t.label}</span>
+                      <span>{t.label(m())}</span>
                     </a>
                   )}
                 </For>
@@ -126,19 +162,19 @@ export default function Admin() {
             <div class="sk-big-emoji" aria-hidden="true">
               🚫🎅
             </div>
-            <h6>You're not an admin</h6>
-            <p class="sk-muted">Only the party organisers can see Krampus HQ.</p>
+            <h6>{m().notAdminTitle}</h6>
+            <p class="sk-muted">{m().notAdminText}</p>
             <A href="/me" class="button round">
-              Back to my page
+              {m().backToMyPage}
             </A>
           </article>
         </Match>
         <Match when={failure()}>
           {(err) => (
             <article class="round sk-card">
-              <h6>Something went wrong</h6>
+              <h6>{m().somethingWrong}</h6>
               <p class="sk-muted">{err().message}</p>
-              <button onClick={q.refetch}>Try again</button>
+              <button onClick={q.refetch}>{m().tryAgain}</button>
             </article>
           )}
         </Match>

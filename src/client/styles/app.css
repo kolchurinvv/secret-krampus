@@ -728,3 +728,21 @@ dialog.sk-confirm > h6 {
 html {
   scroll-padding-block-end: 7rem;
 }
+
+/* Admin top bar: the app-wide language toggle (RU | EN). */
+.sk-lang {
+  flex: none;
+}
+.sk-lang > button {
+  margin: 0;
+  min-inline-size: 2.6rem;
+  padding-inline: 0.6rem;
+}
+/* #root is a grid and the page column has auto side margins, which sizes it
+   to fit-content — never narrower than its widest row's min-content. On a
+   phone that made the admin page ~60px wider than the screen. Fill the grid
+   area instead (still capped at 56rem and centred); rows ellipsize. */
+.sk-admin {
+  inline-size: 100%;
+  min-inline-size: 0;
+}

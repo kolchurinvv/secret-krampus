@@ -1,6 +1,8 @@
 import { createContext, createSignal, useContext } from "solid-js";
 import type { AdminState, PublicState } from "../../shared/types";
 import { errorMessage, toast } from "../components/Feedback";
+import { intlLocale, locale } from "../lib/i18n";
+import { adminMessages } from "./messages";
 
 export type AdminCtx = {
   state: () => AdminState;
@@ -43,14 +45,12 @@ export function countOf(x: unknown): number {
   return Array.isArray(x) ? x.length : typeof x === "number" ? x : 0;
 }
 
-export function plural(n: number, one: string, many = `${one}s`) {
-  return `${n} ${n === 1 ? one : many}`;
-}
-
+/** "just now" / "5 min ago" / "2 h ago" / "24 Nov", in the app's language. */
 export function timeAgo(ms: number) {
+  const m = adminMessages[locale()];
   const s = Math.round((Date.now() - ms) / 1000);
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.round(s / 60)} min ago`;
-  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
-  return new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  if (s < 60) return m.justNow;
+  if (s < 3600) return m.minutesAgo(Math.round(s / 60));
+  if (s < 86400) return m.hoursAgo(Math.round(s / 3600));
+  return new Date(ms).toLocaleDateString(intlLocale(), { day: "numeric", month: "short" });
 }

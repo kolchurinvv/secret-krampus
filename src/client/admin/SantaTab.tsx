@@ -3,30 +3,33 @@ import type { AdminPerson } from "../../shared/types";
 import { Avatar } from "../components/Avatar";
 import { confirmDialog } from "../components/Feedback";
 import { api } from "../lib/api";
-import { countOf, plural, timeAgo, useAdmin } from "./context";
+import { intlLocale, useMessages } from "../lib/i18n";
+import { countOf, timeAgo, useAdmin } from "./context";
+import { adminMessages } from "./messages";
 
 function GiverStatus(props: { person: AdminPerson }) {
+  const m = useMessages(adminMessages);
   const s = () => props.person.santa;
   return (
     <Switch>
       <Match when={!s().assigned}>
-        <span class="chip small" title="Not in the loop yet — press Assign">
-          🕒 waiting
+        <span class="chip small" title={m().waitingTitle}>
+          {m().waitingChip}
         </span>
       </Match>
       <Match when={s().emailError}>
         <span class="chip small error-border error-text" title={s().emailError ?? ""}>
-          ✗ failed
+          {m().failedChip}
         </span>
       </Match>
       <Match when={s().emailSentAt}>
-        <span class="chip small" title={new Date(s().emailSentAt!).toLocaleString()}>
-          ✓ sent {timeAgo(s().emailSentAt!)}
+        <span class="chip small" title={new Date(s().emailSentAt!).toLocaleString(intlLocale())}>
+          {m().sentChip(timeAgo(s().emailSentAt!))}
         </span>
       </Match>
       <Match when={true}>
-        <span class="chip small" title="Assigned, email not sent yet">
-          ⏳ pending
+        <span class="chip small" title={m().pendingTitle}>
+          {m().pendingChip}
         </span>
       </Match>
     </Switch>
@@ -35,6 +38,7 @@ function GiverStatus(props: { person: AdminPerson }) {
 
 export function SantaTab() {
   const { state, run, busy } = useAdmin();
+  const m = useMessages(adminMessages);
   const [preferred, setPreferred] = createSignal<string>("");
 
   const s = () => state().santa;
@@ -50,9 +54,9 @@ export function SantaTab() {
     const first = s().assigned === 0;
     if (first) {
       const ok = await confirmDialog({
-        title: `Draw names for ${plural(s().pool, "person", "people")}?`,
-        message: "Everyone in the pool gets a match. Emails go out only when you press “Send pending emails”.",
-        confirmLabel: "Draw names",
+        title: m().drawTitle(s().pool),
+        message: m().drawMessage,
+        confirmLabel: m().drawConfirm,
       });
       if (!ok) return;
     }
@@ -65,9 +69,7 @@ export function SantaTab() {
       (r) => {
         const n = countOf(r.newGivers);
         const c = countOf(r.changedGivers);
-        return first
-          ? `Names drawn for ${plural(n, "person", "people")} 🎲`
-          : `${plural(n, "late joiner")} added${c ? `, ${plural(c, "person", "people")} re-assigned` : ""}`;
+        return first ? m().namesDrawn(n) : m().lateAdded(n, c);
       },
     );
     setPreferred("");
@@ -76,51 +78,48 @@ export function SantaTab() {
   const sendPending = () =>
     run(
       () => api.post<{ ok: true; sent?: number; failed?: number }>("/api/admin/santa/send-pending"),
-      (r) => `📧 ${plural(r.sent ?? 0, "email")} sent${r.failed ? ` · ${r.failed} failed` : ""}`,
+      (r) => m().emailsSent(r.sent ?? 0, r.failed ?? 0),
     );
 
   const resend = (p: AdminPerson) =>
-    run(() => api.post(`/api/admin/santa/resend/${p.id}`), `Email re-sent to ${p.name}`);
+    run(() => api.post(`/api/admin/santa/resend/${p.id}`), m().emailResent(p.name));
 
   const reshuffle = async () => {
     const ok = await confirmDialog({
-      title: "Reshuffle everyone?",
-      message:
-        "Every single match changes and EVERYONE needs a new email. Only do this if nobody has shopped yet.",
-      confirmLabel: "Reshuffle everyone",
+      title: m().reshuffleTitle,
+      message: m().reshuffleMessage,
+      confirmLabel: m().reshuffleConfirm,
       danger: true,
     });
-    if (ok) await run(() => api.post("/api/admin/santa/reshuffle"), "Everyone has a new match — send the emails!");
+    if (ok) await run(() => api.post("/api/admin/santa/reshuffle"), m().reshuffled);
   };
 
   return (
     <div class="sk-stack">
       <article class="round sk-card">
-        <h6>Secret Santa</h6>
+        <h6>{m().santaTitle}</h6>
         <div class="sk-chips">
-          <span class="chip">🎅 {s().pool} in the pool</span>
-          <span class="chip">🔗 {s().assigned} assigned</span>
+          <span class="chip">{m().poolChip(s().pool)}</span>
+          <span class="chip">{m().assignedChip(s().assigned)}</span>
           <span class="chip" classList={{ fill: s().waiting > 0 }}>
-            🕒 {s().waiting} waiting
+            {m().waitingCountChip(s().waiting)}
           </span>
           <span class="chip" classList={{ fill: s().pendingEmails > 0 }}>
-            📧 {s().pendingEmails} emails pending
+            {m().pendingCountChip(s().pendingEmails)}
           </span>
         </div>
         <Show when={s().drawDoneAt}>
-          <p class="sk-muted small-text">First draw {timeAgo(s().drawDoneAt!)}. The pairs stay secret — even from you.</p>
+          <p class="sk-muted small-text">{m().firstDraw(timeAgo(s().drawDoneAt!))}</p>
         </Show>
         <Show when={s().locked}>
-          <p class="sk-note">
-            🔒 Krampus voting has started, so the Secret Santa is locked. Reset voting (Krampus tab) to change it.
-          </p>
+          <p class="sk-note">{m().santaLocked}</p>
         </Show>
 
         <Show when={showPreferred()}>
           <div class="field label border round sk-top-gap">
             <select onChange={(e) => setPreferred(e.currentTarget.value)} disabled={s().locked}>
               <option value="" selected={preferred() === ""}>
-                Random (keeps you blind)
+                {m().randomBlind}
               </option>
               <For each={assignedPeople()}>
                 {(p) => (
@@ -130,12 +129,9 @@ export function SantaTab() {
                 )}
               </For>
             </select>
-            <label>Who gets re-assigned for the late joiners?</label>
+            <label>{m().whoReassigned}</label>
           </div>
-          <p class="sk-muted small-text sk-m0">
-            Late joiners are slotted into the loop after this person, so only they get a new match (and a “plot twist”
-            email). Picking someone tells you they now gift a newcomer.
-          </p>
+          <p class="sk-muted small-text sk-m0">{m().reassignHint}</p>
         </Show>
 
         <div class="sk-button-stack sk-top-gap">
@@ -147,14 +143,14 @@ export function SantaTab() {
             <i>shuffle</i>
             <span>
               {s().assigned === 0
-                ? "Assign gifters ↔ receivers"
+                ? m().assignFirst
                 : s().waiting > 0
-                  ? `Assign ${plural(s().waiting, "late joiner")}`
-                  : "Everyone is assigned ✓"}
+                  ? m().assignLate(s().waiting)
+                  : m().everyoneAssigned}
             </span>
           </button>
           <Show when={s().assigned === 0 && s().pool < 3}>
-            <p class="sk-muted small-text sk-m0 center-align">Needs at least 3 people in the pool.</p>
+            <p class="sk-muted small-text sk-m0 center-align">{m().needsThree}</p>
           </Show>
           <button
             class="round large responsive"
@@ -163,18 +159,16 @@ export function SantaTab() {
             onClick={() => void sendPending()}
           >
             <i>send</i>
-            <span>Send pending emails ({s().pendingEmails})</span>
+            <span>{m().sendPending(s().pendingEmails)}</span>
           </button>
-          <p class="sk-muted small-text sk-m0 center-align">
-            Sends to everyone who's new or whose match changed — nobody gets a duplicate.
-          </p>
+          <p class="sk-muted small-text sk-m0 center-align">{m().sendHint}</p>
         </div>
       </article>
 
       <article class="round sk-card no-padding">
-        <h6 class="sk-list-title">Email delivery</h6>
+        <h6 class="sk-list-title">{m().emailDelivery}</h6>
         <ul class="sk-people">
-          <For each={pool()} fallback={<li class="sk-empty">Nobody in the Secret Santa yet.</li>}>
+          <For each={pool()} fallback={<li class="sk-empty">{m().nobodyInSanta}</li>}>
             {(p) => (
               <li class="sk-person sk-person-compact">
                 <Avatar name={p.name} url={p.avatarUrl} class="sk-person-avatar-sm" />
@@ -185,13 +179,13 @@ export function SantaTab() {
                   <div class="sk-person-tags">
                     <GiverStatus person={p} />
                     <Show when={p.santa.changed}>
-                      <span class="chip small" title="Their match changed after the first draw">
-                        🔀 changed
+                      <span class="chip small" title={m().changedTitle}>
+                        {m().changedChip}
                       </span>
                     </Show>
                     <Show when={!p.email}>
-                      <span class="chip small" title="No email address — tell them in person">
-                        no email
+                      <span class="chip small" title={m().noEmailTitle}>
+                        {m().noEmail}
                       </span>
                     </Show>
                   </div>
@@ -202,8 +196,8 @@ export function SantaTab() {
                 <Show when={p.santa.assigned && p.email}>
                   <button
                     class="circle transparent small"
-                    title="Resend email"
-                    aria-label={`Resend email to ${p.name}`}
+                    title={m().resendTitle}
+                    aria-label={m().resendTo(p.name)}
                     disabled={busy()}
                     onClick={() => void resend(p)}
                   >
@@ -217,17 +211,15 @@ export function SantaTab() {
       </article>
 
       <article class="round sk-card sk-danger">
-        <h6>Danger zone</h6>
-        <p class="sk-muted small-text">
-          Throws away every match and draws a completely new loop. Everyone needs a new email afterwards.
-        </p>
+        <h6>{m().dangerZone}</h6>
+        <p class="sk-muted small-text">{m().reshuffleHint}</p>
         <button
           class="round error"
           disabled={busy() || s().locked || s().assigned === 0}
           onClick={() => void reshuffle()}
         >
           <i>restart_alt</i>
-          <span>Reshuffle everyone</span>
+          <span>{m().reshuffleConfirm}</span>
         </button>
       </article>
     </div>

@@ -3,10 +3,13 @@ import type { AdminPerson, ContestKind } from "../../shared/types";
 import { Avatar } from "../components/Avatar";
 import { confirmDialog } from "../components/Feedback";
 import { api } from "../lib/api";
-import { plural, useAdmin } from "./context";
+import { useMessages } from "../lib/i18n";
+import { useAdmin } from "./context";
+import { adminMessages } from "./messages";
 
 function StarCell(props: { person: AdminPerson }) {
   const { run, busy } = useAdmin();
+  const m = useMessages(adminMessages);
   const [editing, setEditing] = createSignal(false);
   const [draft, setDraft] = createSignal("");
   const p = () => props.person;
@@ -15,17 +18,17 @@ function StarCell(props: { person: AdminPerson }) {
     const n = Number.parseInt(draft(), 10);
     setEditing(false);
     if (!Number.isFinite(n) || n < 0 || n === p().stars) return;
-    await run(() => api.post("/api/admin/stars/set", { participantId: p().id, count: n }), `${p().name} now has ${n} ⭐`);
+    await run(() => api.post("/api/admin/stars/set", { participantId: p().id, count: n }), m().nowHasStars(p().name, n));
   };
 
   return (
     <div class="sk-starcell">
       <button
         class="circle transparent small"
-        title="−1 star"
-        aria-label={`Remove a star from ${p().name}`}
+        title={m().minusOneStar}
+        aria-label={m().removeStarFrom(p().name)}
         disabled={busy() || p().stars === 0}
-        onClick={() => void run(() => api.post("/api/admin/stars/remove-one", { participantId: p().id }), `−1 ⭐ ${p().name}`)}
+        onClick={() => void run(() => api.post("/api/admin/stars/remove-one", { participantId: p().id }), m().takenBackOne(p().name))}
       >
         <i>remove</i>
       </button>
@@ -34,7 +37,7 @@ function StarCell(props: { person: AdminPerson }) {
         fallback={
           <button
             class="sk-starcount"
-            title="Tap to set the score"
+            title={m().tapToSet}
             onClick={() => {
               setDraft(String(p().stars));
               setEditing(true);
@@ -62,7 +65,7 @@ function StarCell(props: { person: AdminPerson }) {
             if (e.key === "Enter") e.currentTarget.blur();
             if (e.key === "Escape") setEditing(false);
           }}
-          aria-label={`Stars for ${p().name}`}
+          aria-label={m().starsFor(p().name)}
         />
       </Show>
     </div>
@@ -71,6 +74,7 @@ function StarCell(props: { person: AdminPerson }) {
 
 export function ContestsTab() {
   const { state, run, busy } = useAdmin();
+  const m = useMessages(adminMessages);
   const [selected, setSelected] = createSignal<ReadonlySet<string>>(new Set());
   const [newName, setNewName] = createSignal("");
   const [newKind, setNewKind] = createSignal<ContestKind>("team");
@@ -107,7 +111,7 @@ export function ContestsTab() {
     const names = selectedNames();
     const r = await run(
       () => api.post("/api/admin/stars/award", { participantIds: ids, contestId: state().currentContestId }),
-      `+1 ⭐ ${names.length <= 3 ? names.join(", ") : plural(names.length, "person", "people")}`,
+      m().awarded(names),
     );
     if (r) setSelected(new Set<string>());
   };
@@ -124,7 +128,7 @@ export function ContestsTab() {
     const names = losers.map((p) => p.name);
     const r = await run(
       () => api.post("/api/admin/stars/remove", { participantIds: losers.map((p) => p.id), contestId: c.id }),
-      `−1 ⭐ ${names.length <= 3 ? names.join(", ") : plural(names.length, "person", "people")}`,
+      m().takenBack(names),
     );
     if (r) setSelected(new Set<string>());
   };
@@ -135,7 +139,7 @@ export function ContestsTab() {
     if (!name) return;
     const r = await run(
       () => api.post<{ ok: true; id?: string }>("/api/admin/contests", { name, kind: newKind() }),
-      `Contest “${name}” created`,
+      m().contestCreated(name),
     );
     if (r) {
       setNewName("");
@@ -150,46 +154,44 @@ export function ContestsTab() {
   const deleteContest = async (c: { id: string; name: string; stars: number }) => {
     if (c.stars > 0) return; // the button is disabled; the server refuses too
     const ok = await confirmDialog({
-      title: `Delete “${c.name}”?`,
-      message: "Nobody has a star in it, so it disappears as if it never happened. This can't be undone.",
-      confirmLabel: "Delete",
+      title: m().deleteContestTitle(c.name),
+      message: m().deleteContestMessage,
+      confirmLabel: m().delete,
       danger: true,
     });
-    if (ok) await run(() => api.del(`/api/admin/contests/${c.id}`), "Contest deleted");
+    if (ok) await run(() => api.del(`/api/admin/contests/${c.id}`), m().contestDeleted);
   };
 
   const undo = async () => {
     const la = state().lastAward;
     if (!la) return;
     const ok = await confirmDialog({
-      title: "Undo the last award?",
-      message: `Removes +1 ⭐ from ${la.names.join(", ")}${la.contestName ? ` (${la.contestName})` : ""}.`,
-      confirmLabel: "Undo",
+      title: m().undoTitle,
+      message: m().undoMessage(la.names.join(", "), la.contestName),
+      confirmLabel: m().undo,
     });
-    if (ok) await run(() => api.post("/api/admin/stars/undo-last"), "Last award undone");
+    if (ok) await run(() => api.post("/api/admin/stars/undo-last"), m().lastAwardUndone);
   };
 
   const crown = async () => {
     const l = state().leaders;
     const tie = l.names.length > 1;
     const ok = await confirmDialog({
-      title: tie ? "Crown everyone tied for first?" : `Crown ${l.names[0] ?? "the leader"}?`,
-      message: tie
-        ? `${l.names.join(", ")} are tied on ${l.stars} ⭐. You could run a tie-breaker and award one more star first.`
-        : `${l.names[0]} leads with ${l.stars} ⭐. Fanfare on the TV! 🎺`,
-      confirmLabel: tie ? "Crown them all" : "Crown champion",
+      title: tie ? m().crownTieTitle : m().crownOneTitle(l.names[0]),
+      message: tie ? m().crownTieMessage(l.names.join(", "), l.stars) : m().crownOneMessage(l.names[0], l.stars),
+      confirmLabel: tie ? m().crownThemAll : m().crownChampion,
     });
-    if (ok) await run(() => api.post("/api/admin/scene", { kind: "champion" }), "👑 Champion on the TV!");
+    if (ok) await run(() => api.post("/api/admin/scene", { kind: "champion" }), m().championOnTv);
   };
 
   return (
     <div class="sk-stack sk-contests">
       <article class="round sk-card no-padding">
         <div class="sk-list-head">
-          <h6 class="sk-m0">Contests</h6>
+          <h6 class="sk-m0">{m().contestsTitle}</h6>
         </div>
         <ul class="sk-people sk-contest-list">
-          <For each={state().contests} fallback={<li class="sk-empty">No contests yet — add the first one below.</li>}>
+          <For each={state().contests} fallback={<li class="sk-empty">{m().noContests}</li>}>
             {(c) => (
               <li
                 class="sk-person sk-person-compact sk-selectable"
@@ -208,15 +210,15 @@ export function ContestsTab() {
                 <i class="sk-contest-pick">{c.id === state().currentContestId ? "radio_button_checked" : "radio_button_unchecked"}</i>
                 <i class="sk-muted">{c.kind === "team" ? "groups" : "person"}</i>
                 <span class="sk-ellipsis max">{c.name}</span>
-                <span class="small-text sk-muted">{c.kind === "team" ? "Team" : "Solo"}</span>
-                <span class="sk-contest-stars small-text" title="Stars awarded in this contest">
+                <span class="small-text sk-muted">{c.kind === "team" ? m().kindTeam : m().kindSolo}</span>
+                <span class="sk-contest-stars small-text" title={m().contestStarsTitle}>
                   ⭐ {c.stars}
                 </span>
                 <button
                   class="circle transparent small"
                   disabled={c.stars > 0}
-                  title={c.stars > 0 ? `Has ${c.stars} ⭐ — take them back (−1) before deleting` : "Delete contest"}
-                  aria-label={`Delete ${c.name}`}
+                  title={c.stars > 0 ? m().cantDeleteContest(c.stars) : m().deleteContest}
+                  aria-label={m().deleteName(c.name)}
                   onClick={(e) => {
                     e.stopPropagation();
                     void deleteContest(c);
@@ -231,7 +233,7 @@ export function ContestsTab() {
         <form class="sk-form-row sk-contest-add" onSubmit={createContest}>
           <div class="field label border round max">
             <input type="text" placeholder=" " maxlength={60} value={newName()} onInput={(e) => setNewName(e.currentTarget.value)} />
-            <label>New contest</label>
+            <label>{m().newContest}</label>
           </div>
           <nav class="no-space sk-kind">
             <button
@@ -241,7 +243,7 @@ export function ContestsTab() {
               onClick={() => setNewKind("individual")}
             >
               <i>person</i>
-              <span>Solo</span>
+              <span>{m().kindSolo}</span>
             </button>
             <button
               type="button"
@@ -250,12 +252,12 @@ export function ContestsTab() {
               onClick={() => setNewKind("team")}
             >
               <i>groups</i>
-              <span>Team</span>
+              <span>{m().kindTeam}</span>
             </button>
           </nav>
           <button type="submit" class="round" disabled={!newName().trim()}>
             <i>add</i>
-            <span>Add</span>
+            <span>{m().add}</span>
           </button>
         </form>
       </article>
@@ -269,28 +271,33 @@ export function ContestsTab() {
               checked={allSelected()}
               onChange={() => setSelected(allSelected() ? new Set<string>() : new Set(people().map((p) => p.id)))}
             />
-            <span>All</span>
+            <span>{m().selectAll}</span>
           </label>
           <div class="max" />
           <button class="transparent small" onClick={() => setSortBy(sortBy() === "name" ? "stars" : "name")}>
             <i>sort</i>
-            <span>{sortBy() === "name" ? "A–Z" : "Stars"}</span>
+            <span>{sortBy() === "name" ? m().sortAZ : m().sortStars}</span>
           </button>
         </div>
         <Show
           when={!locked()}
           fallback={
             <p class="sk-lock-hint small-text">
-              <i>lock</i> Pick a contest above to award stars.
+              <i>lock</i> {m().pickContestFirst}
             </p>
           }
         >
           <p class="sk-lock-hint small-text">
-            <i>emoji_events</i> Awarding in <strong>{current()?.name}</strong> — pick the {current()?.kind === "team" ? "team" : "winner"}.
+            <i>emoji_events</i>
+            {/* One span: the hint is a flex row, and loose text nodes would each become a column. */}
+            <span>
+              {m().awardingIn} <strong>{current()?.name}</strong>
+              {current()?.kind === "team" ? m().pickTeam : m().pickWinner}
+            </span>
           </p>
         </Show>
         <ul class="sk-people">
-          <For each={people()} fallback={<li class="sk-empty">Add people first.</li>}>
+          <For each={people()} fallback={<li class="sk-empty">{m().addPeopleFirst}</li>}>
             {(p) => (
               <li class="sk-person sk-person-compact sk-selectable" classList={{ "is-selected": isSelected(p.id) }}>
                 <label class="checkbox sk-pick">
@@ -301,8 +308,8 @@ export function ContestsTab() {
                   <Avatar name={p.name} url={p.avatarUrl} class="sk-person-avatar-sm" />
                   <span class="sk-ellipsis">{p.name}</span>
                   <Show when={!locked() && starsHere(p) > 0}>
-                    <span class="sk-here small-text" title={`Stars in ${current()?.name}`}>
-                      {starsHere(p)} here
+                    <span class="sk-here small-text" title={m().starsIn(current()?.name)}>
+                      {m().starsHere(starsHere(p))}
                     </span>
                   </Show>
                 </div>
@@ -318,7 +325,7 @@ export function ContestsTab() {
           {(la) => (
             <div class="sk-form-row">
               <div class="max small-text">
-                <div class="sk-muted">Last award</div>
+                <div class="sk-muted">{m().lastAward}</div>
                 <div>
                   +1 ⭐ {la().names.join(", ")}
                   {la().contestName ? ` · ${la().contestName}` : ""}
@@ -326,7 +333,7 @@ export function ContestsTab() {
               </div>
               <button class="border round small" disabled={busy()} onClick={() => void undo()}>
                 <i>undo</i>
-                <span>Undo</span>
+                <span>{m().undo}</span>
               </button>
             </div>
           )}
@@ -334,16 +341,14 @@ export function ContestsTab() {
         <div class="sk-top-gap">
           <Show
             when={state().leaders.names.length > 0 && state().leaders.stars > 0}
-            fallback={<p class="sk-muted small-text">No stars awarded yet.</p>}
+            fallback={<p class="sk-muted small-text">{m().noStarsAwarded}</p>}
           >
             <p class="small-text sk-m0">
-              <span class="sk-muted">Leading: </span>
+              <span class="sk-muted">{m().leading}</span>
               {state().leaders.names.join(", ")} · {state().leaders.stars} ⭐
             </p>
             <Show when={state().leaders.names.length > 1}>
-              <p class="sk-note small-text">
-                ⚠️ Tie at the top — run a tie-breaker and give one more star, or crown them all.
-              </p>
+              <p class="sk-note small-text">{m().tieAtTop}</p>
             </Show>
           </Show>
           <button
@@ -353,7 +358,7 @@ export function ContestsTab() {
             onClick={() => void crown()}
           >
             <i>emoji_events</i>
-            <span>{state().championRevealed ? "Crown again on TV" : "Crown champion 🎺"}</span>
+            <span>{state().championRevealed ? m().crownAgain : m().crownChampionButton}</span>
           </button>
         </div>
       </article>
@@ -361,16 +366,16 @@ export function ContestsTab() {
       <Show when={selected().size > 0}>
         <div class="sk-actionbar">
           <div class="max">
-            <strong>{selected().size} selected</strong>
+            <strong>{m().selectedCount(selected().size)}</strong>
             <div class="small-text sk-muted sk-ellipsis">{current()?.name}</div>
           </div>
           <button class="transparent" onClick={() => setSelected(new Set<string>())}>
-            Clear
+            {m().clearSelection}
           </button>
           <button
             class="round large border"
             disabled={busy() || selectedWithStars().length === 0}
-            title="Take back one star won in this contest from each selected person (anyone with none here is skipped)"
+            title={m().takeBackTitle}
             onClick={() => void takeStar()}
           >
             <span>−1 ⭐</span>

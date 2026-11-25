@@ -2,10 +2,13 @@ import { createMemo, For, Match, Show, Switch } from "solid-js";
 import { Avatar } from "../components/Avatar";
 import { confirmDialog } from "../components/Feedback";
 import { api } from "../lib/api";
+import { useMessages } from "../lib/i18n";
 import { useAdmin } from "./context";
+import { adminMessages } from "./messages";
 
 export function KrampusTab() {
   const { state, live, run, busy } = useAdmin();
+  const m = useMessages(adminMessages);
   const v = () => state().voting;
   const voters = createMemo(() =>
     state()
@@ -17,86 +20,78 @@ export function KrampusTab() {
 
   const open = async () => {
     const ok = await confirmDialog({
-      title: "Open gift rating?",
-      message:
-        "Everyone's phone shows a star slider for the gift they received. Secret Santa changes are locked while voting runs.",
-      confirmLabel: "Open round 1",
+      title: m().openVotingTitle,
+      message: m().openVotingMessage,
+      confirmLabel: m().openRoundOne,
     });
-    if (ok) await run(() => api.post("/api/admin/voting/open"), "Voting is open 🗳️");
+    if (ok) await run(() => api.post("/api/admin/voting/open"), m().votingOpened);
   };
 
   const closeRound = async () => {
     const missing = voters().length - votedCount();
     const ok = await confirmDialog({
-      title: `Close round ${v().round} now?`,
-      message: missing
-        ? `${missing} ${missing === 1 ? "person hasn't" : "people haven't"} voted — their missing ratings are skipped.`
-        : "Everyone has voted.",
-      confirmLabel: "Close round",
+      title: m().closeRoundTitle(v().round),
+      message: missing ? m().closeRoundMissing(missing) : m().everyoneVoted,
+      confirmLabel: m().closeRound,
     });
-    if (ok) await run(() => api.post("/api/admin/voting/close-round"), "Round closed");
+    if (ok) await run(() => api.post("/api/admin/voting/close-round"), m().roundClosed);
   };
 
   const reveal = async () => {
     const ok = await confirmDialog({
-      title: "Reveal the Secret Krampus on the TV?",
-      message: "Make sure the TV is on and the sound is unlocked. 🎺😈",
-      confirmLabel: "Reveal!",
+      title: m().revealTitle,
+      message: m().revealMessage,
+      confirmLabel: m().revealConfirm,
     });
-    if (ok) await run(() => api.post("/api/admin/scene", { kind: "krampus" }), "Revealing on the TV…");
+    if (ok) await run(() => api.post("/api/admin/scene", { kind: "krampus" }), m().revealing);
   };
 
   const reset = async () => {
     const ok = await confirmDialog({
-      title: "Reset Krampus voting?",
-      message: "All ratings from every round are deleted and the Secret Santa unlocks. This can't be undone.",
-      confirmLabel: "Reset voting",
+      title: m().resetTitle,
+      message: m().resetMessage,
+      confirmLabel: m().resetVoting,
       danger: true,
     });
-    if (ok) await run(() => api.post("/api/admin/voting/reset"), "Voting reset");
+    if (ok) await run(() => api.post("/api/admin/voting/reset"), m().votingReset);
   };
 
   return (
     <div class="sk-stack">
       <article class="round sk-card">
-        <h6>Secret Krampus vote</h6>
+        <h6>{m().voteTitle}</h6>
         <Switch>
           <Match when={v().round === 0 || v().status === "closed"}>
-            <p class="sk-muted">
-              Round 1: each person rates the gift they received (½-star steps). If the lowest gifts tie, a tie-break
-              round where everyone votes opens automatically.
-            </p>
+            <p class="sk-muted">{m().voteIntro}</p>
             <button
               class="round large responsive"
               disabled={busy() || state().santa.assigned === 0}
               onClick={() => void open()}
             >
               <i>how_to_vote</i>
-              <span>Open voting (round 1)</span>
+              <span>{m().openVoting}</span>
             </button>
             <Show when={state().santa.assigned === 0}>
-              <p class="sk-muted small-text center-align">Assign the Secret Santa first.</p>
+              <p class="sk-muted small-text center-align">{m().assignSantaFirst}</p>
             </Show>
           </Match>
           <Match when={v().status === "open"}>
             <div class="sk-chips">
-              <span class="chip fill">{v().round === 1 ? "Round 1 · recipients rate" : `Tie-break · round ${v().round}`}</span>
-              <span class="chip">
-                {votedCount()} / {voters().length} voted
-              </span>
+              <span class="chip fill">{v().round === 1 ? m().roundOneChip : m().tieBreakChip(v().round)}</span>
+              <span class="chip">{m().votedOf(votedCount(), voters().length)}</span>
             </div>
             <progress class="sk-top-gap" value={votedCount()} max={Math.max(1, voters().length)} />
             <Show when={v().round >= 2 && tiedGifts().length > 0}>
-              <p class="sk-muted small-text">Tied gifts:</p>
+              <p class="sk-muted small-text">{m().tiedGifts}</p>
               <div class="sk-chips">
                 <For each={tiedGifts()}>
-                  {(g) => <span class="chip small">🎁 {g.forName}'s gift</span>}
+                  {(g) => <span class="chip small">{m().giftFor(g.forName)}</span>}
                 </For>
               </div>
             </Show>
             <button class="round border responsive sk-top-gap" disabled={busy()} onClick={() => void closeRound()}>
               <i>stop_circle</i>
-              <span>Close round now</span>
+              <span>{m().closeRoundNow}</span>
             </button>
           </Match>
           <Match when={v().status === "done"}>
@@ -106,17 +101,18 @@ export function KrampusTab() {
               </div>
               <Show
                 when={v().hasResult}
-                fallback={<p>Voting finished, but no gift got a rating — reset and try again.</p>}
+                fallback={<p>{m().noRatings}</p>}
               >
                 <p>
-                  <strong>The Krampus has been decided.</strong> Even you don't know who it is yet.
+                  <strong>{m().krampusDecided}</strong>
+                  {m().krampusDecidedHint}
                 </p>
               </Show>
             </div>
             <Show when={v().hasResult}>
               <button class="round large responsive" disabled={busy()} onClick={() => void reveal()}>
                 <i>theaters</i>
-                <span>{v().revealed ? "Show the reveal on TV again" : "Reveal on TV 😈"}</span>
+                <span>{v().revealed ? m().revealAgain : m().revealOnTv}</span>
               </button>
             </Show>
           </Match>
@@ -125,15 +121,15 @@ export function KrampusTab() {
 
       <Show when={v().status === "open"}>
         <article class="round sk-card no-padding">
-          <h6 class="sk-list-title">Who has voted</h6>
+          <h6 class="sk-list-title">{m().whoVoted}</h6>
           <ul class="sk-people">
-            <For each={voters()} fallback={<li class="sk-empty">Nobody can vote this round.</li>}>
+            <For each={voters()} fallback={<li class="sk-empty">{m().nobodyCanVote}</li>}>
               {(p) => (
                 <li class="sk-person sk-person-compact">
                   <Avatar name={p.name} url={p.avatarUrl} class="sk-person-avatar-sm" />
                   <div class="max sk-ellipsis">{p.name}</div>
                   <span class="chip small" classList={{ fill: p.voting.voted }}>
-                    {p.voting.voted ? "✓ voted" : "⏳ not yet"}
+                    {p.voting.voted ? m().votedChip : m().notYetChip}
                   </span>
                 </li>
               )}
@@ -144,10 +140,10 @@ export function KrampusTab() {
 
       <Show when={v().round > 0}>
         <article class="round sk-card sk-danger">
-          <h6>Danger zone</h6>
+          <h6>{m().dangerZone}</h6>
           <button class="round error" disabled={busy()} onClick={() => void reset()}>
             <i>restart_alt</i>
-            <span>Reset voting</span>
+            <span>{m().resetVoting}</span>
           </button>
         </article>
       </Show>
