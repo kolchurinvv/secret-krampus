@@ -2,7 +2,16 @@
   "name": "secret-krampus",
   "private": true,
   "type": "module",
-  "scripts": {},
+  "scripts": {
+    "dev:server": "bun --watch src/server/index.ts",
+    "dev:client": "vite",
+    "build": "vite build",
+    "start": "NODE_ENV=production bun src/server/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p .",
+    "db:generate": "drizzle-kit generate",
+    "seed": "bun scripts/seed.ts"
+  },
   "dependencies": {
     "@fontsource/mountains-of-christmas": "^5.3.0",
     "@hono/bun": "^1.0.1",
