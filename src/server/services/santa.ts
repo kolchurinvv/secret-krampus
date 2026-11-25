@@ -5,9 +5,10 @@ import { db, type DB } from "../db";
 import { participant, santaAssignment, user } from "../db/schema";
 import { UserError } from "../errors";
 import { notify } from "../events";
-import { assignPending, randomLoop, removeFromLoop, type Loop } from "./draw";
+import { assignPending, MIN_DRAW, randomLoop, removeFromLoop, type Loop } from "./draw";
 import { sendAssignmentEmails, type AssignmentEmail } from "./email";
 import { getState, patchState } from "./state";
+import { tr } from "../messages";
 
 type Tx = Parameters<Parameters<DB["transaction"]>[0]>[0];
 type Row = typeof santaAssignment.$inferSelect;
@@ -31,7 +32,7 @@ export function poolIds(tx: Pick<DB, "select"> = db): string[] {
 
 export function assertSantaUnlocked(tx: Pick<DB, "select" | "update"> = db) {
   if (getState(tx).voteRound > 0) {
-    throw new UserError("Krampus voting has started — reset the voting first to change the Secret Santa.", 409);
+    throw new UserError(tr().santaLocked, 409);
   }
 }
 
@@ -74,6 +75,7 @@ export function assign(preferredGiverId?: string | null) {
     const pool = poolIds(tx);
     // Defensive: drop anyone who left the pool without going through removeFromPool.
     for (const g of [...loop.keys()]) if (!pool.includes(g)) loop = removeFromLoop(loop, g).loop;
+    if (loop.size === 0 && pool.length < MIN_DRAW) throw new UserError(tr().tooFewForDraw(MIN_DRAW));
     let res;
     try {
       res = assignPending(loop, pool, { preferredGiver: preferredGiverId });
@@ -92,9 +94,11 @@ export function assign(preferredGiverId?: string | null) {
 export function reshuffle() {
   db.transaction((tx) => {
     assertSantaUnlocked(tx);
+    const pool = poolIds(tx);
+    if (pool.length < MIN_DRAW) throw new UserError(tr().tooFewForDraw(MIN_DRAW));
     let loop;
     try {
-      loop = randomLoop(poolIds(tx));
+      loop = randomLoop(pool);
     } catch (err) {
       throw new UserError((err as Error).message);
     }
@@ -187,7 +191,7 @@ export function sendPending() {
 /** Re-sends one giver's email, whatever its status. */
 export function resend(giverId: string) {
   const jobs = emailJobs(giverId);
-  if (jobs.length === 0) throw new UserError("That person has no assignment yet.", 404);
+  if (jobs.length === 0) throw new UserError(tr().noAssignment, 404);
   return deliver(jobs);
 }
 

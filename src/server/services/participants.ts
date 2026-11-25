@@ -5,6 +5,7 @@ import { UserError } from "../errors";
 import { notify } from "../events";
 import { removeFromPool } from "./santa";
 import { deleteAvatar } from "./storage";
+import { tr } from "../messages";
 
 export type Participant = typeof participant.$inferSelect;
 
@@ -12,18 +13,18 @@ const NAME_MAX = 40;
 const WISHLIST_MAX = 1000;
 
 export function cleanName(name: unknown): string {
-  if (typeof name !== "string") throw new UserError("Name must be text.");
+  if (typeof name !== "string") throw new UserError(tr().nameNotText);
   const n = name.trim().replace(/\s+/g, " ");
-  if (!n) throw new UserError("Name can't be empty.");
-  if (n.length > NAME_MAX) throw new UserError(`Name is too long (max ${NAME_MAX}).`);
+  if (!n) throw new UserError(tr().nameEmpty);
+  if (n.length > NAME_MAX) throw new UserError(tr().nameTooLong(NAME_MAX));
   return n;
 }
 
 function cleanEmail(email: unknown): string | null {
   if (email === null || email === undefined || email === "") return null;
-  if (typeof email !== "string") throw new UserError("Email must be text.");
+  if (typeof email !== "string") throw new UserError(tr().emailNotText);
   const e = email.trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw new UserError("That email doesn't look right.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw new UserError(tr().emailInvalid);
   return e;
 }
 
@@ -64,7 +65,7 @@ export function createPerson(input: { name: unknown; email?: unknown }) {
   const name = cleanName(input.name);
   const email = cleanEmail(input.email);
   if (email && db.select().from(participant).where(eq(participant.email, email)).get()) {
-    throw new UserError("Someone with that email already exists.", 409);
+    throw new UserError(tr().emailTaken, 409);
   }
   const p = db.insert(participant).values({ name, email }).returning().get();
   notify();
@@ -73,23 +74,23 @@ export function createPerson(input: { name: unknown; email?: unknown }) {
 
 export function updatePerson(id: string, input: { name?: unknown; email?: unknown; inSanta?: unknown; wishlist?: unknown }) {
   const p = getParticipant(id);
-  if (!p) throw new UserError("No such person.", 404);
+  if (!p) throw new UserError(tr().noSuchPerson, 404);
   const patch: Partial<Participant> = {};
   if (input.name !== undefined) patch.name = cleanName(input.name);
   if (input.wishlist !== undefined) {
-    if (typeof input.wishlist !== "string") throw new UserError("Wishlist must be text.");
+    if (typeof input.wishlist !== "string") throw new UserError(tr().wishlistNotText);
     patch.wishlist = input.wishlist.trim().slice(0, WISHLIST_MAX);
   }
   if (input.email !== undefined) {
-    if (p.userId) throw new UserError("This person signs in with their own email; it can't be changed here.");
+    if (p.userId) throw new UserError(tr().emailLocked);
     const email = cleanEmail(input.email);
     if (email && email !== p.email && db.select().from(participant).where(eq(participant.email, email)).get()) {
-      throw new UserError("Someone with that email already exists.", 409);
+      throw new UserError(tr().emailTaken, 409);
     }
     patch.email = email;
   }
   if (input.inSanta !== undefined) {
-    if (typeof input.inSanta !== "boolean") throw new UserError("inSanta must be true or false.");
+    if (typeof input.inSanta !== "boolean") throw new UserError(tr().inSantaNotBool);
     patch.inSanta = input.inSanta;
   }
   db.transaction((tx) => {
@@ -102,7 +103,7 @@ export function updatePerson(id: string, input: { name?: unknown; email?: unknow
 
 export async function deletePerson(id: string) {
   const p = getParticipant(id);
-  if (!p) throw new UserError("No such person.", 404);
+  if (!p) throw new UserError(tr().noSuchPerson, 404);
   db.transaction((tx) => {
     removeFromPool(tx, id);
     tx.delete(participant).where(eq(participant.id, id)).run();
@@ -115,7 +116,7 @@ export async function deletePerson(id: string) {
 
 export async function setAvatar(id: string, avatar: { key: string; url: string }) {
   const p = getParticipant(id);
-  if (!p) throw new UserError("No such person.", 404);
+  if (!p) throw new UserError(tr().noSuchPerson, 404);
   db.update(participant).set({ avatarKey: avatar.key, avatarUrl: avatar.url }).where(eq(participant.id, id)).run();
   await deleteAvatar(p.avatarKey);
   notify();

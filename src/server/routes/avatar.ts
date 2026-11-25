@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import { UserError } from "../errors";
 import { setAvatar } from "../services/participants";
 import { AVATAR_TYPES, MAX_AVATAR_BYTES, putAvatar } from "../services/storage";
+import { tr } from "../messages";
 
 /** Recognises the image by its first bytes rather than trusting the browser. */
 function sniff(bytes: Uint8Array): string | null {
@@ -16,11 +17,11 @@ function sniff(bytes: Uint8Array): string | null {
 export async function handleAvatarUpload(c: Context, participantId: string) {
   const form = await c.req.parseBody();
   const file = form.file;
-  if (!(file instanceof File)) throw new UserError("Attach an image as 'file'.");
-  if (file.size > MAX_AVATAR_BYTES) throw new UserError("That image is too big (max 2 MB).");
+  if (!(file instanceof File)) throw new UserError(tr().attachImage);
+  if (file.size > MAX_AVATAR_BYTES) throw new UserError(tr().imageTooBig);
   const bytes = new Uint8Array(await file.arrayBuffer());
   const type = sniff(bytes);
-  if (!type || !AVATAR_TYPES[type]) throw new UserError("Use a JPEG, PNG or WebP image.");
+  if (!type || !AVATAR_TYPES[type]) throw new UserError(tr().imageType);
   const stored = await putAvatar(participantId, new Blob([bytes], { type }), type);
   await setAvatar(participantId, stored);
   return c.json({ ok: true, avatarUrl: stored.url });

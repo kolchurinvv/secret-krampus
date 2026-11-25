@@ -13,8 +13,9 @@ import { contestStarCounts, lastBatch, leaders, starCounts } from "./scores";
 import { getState } from "./state";
 import { roundContext, roundVotes } from "./voting";
 import { storageMode } from "./storage";
+import { tr } from "../messages";
 
-const displayName = (name: string) => name || "Mystery elf";
+const displayName = (name: string) => name || tr().mysteryElf;
 
 function people() {
   return db

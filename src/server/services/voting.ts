@@ -8,6 +8,7 @@ import { notify } from "../events";
 import { decide, isRoundComplete, votersFor, type RoundContext, type Vote } from "./krampus";
 import { loadLoop } from "./santa";
 import { getState, patchState } from "./state";
+import { tr } from "../messages";
 
 type Q = Pick<DB, "select" | "update">;
 
@@ -47,9 +48,9 @@ export function roundVotes(round: number, q: Pick<DB, "select"> = db): Vote[] {
 export function openVoting() {
   db.transaction((tx) => {
     const state = getState(tx);
-    if (state.voteRound > 0) throw new UserError("Voting has already started. Reset it to start over.", 409);
+    if (state.voteRound > 0) throw new UserError(tr().votingStarted, 409);
     const loop = loadLoop(tx);
-    if (loop.size < 2) throw new UserError("Assign the Secret Santa first.");
+    if (loop.size < 2) throw new UserError(tr().assignFirst);
     patchState(
       {
         voteRound: 1,
@@ -72,7 +73,7 @@ export function advance(force = false) {
   const changed = db.transaction((tx) => {
     const state = getState(tx);
     if (state.voteStatus !== "open") {
-      if (force) throw new UserError("No voting round is open.", 409);
+      if (force) throw new UserError(tr().noRoundOpen, 409);
       return false;
     }
     const ctx = roundContext(tx);
@@ -100,17 +101,17 @@ export function closeRound() {
 
 /** Records `voterId`'s rating of the gift received by `forId`. */
 export function castVote(voterId: string, forId: unknown, score: unknown) {
-  if (typeof forId !== "string") throw new UserError("Which gift?");
+  if (typeof forId !== "string") throw new UserError(tr().whichGift);
   if (typeof score !== "number" || !Number.isInteger(score) || score < MIN_SCORE || score > MAX_SCORE) {
-    throw new UserError(`Score must be a whole number from ${MIN_SCORE} to ${MAX_SCORE}.`);
+    throw new UserError(tr().badScore(MIN_SCORE, MAX_SCORE));
   }
   db.transaction((tx) => {
     const state = getState(tx);
-    if (state.voteStatus !== "open") throw new UserError("Voting isn't open right now.", 409);
+    if (state.voteStatus !== "open") throw new UserError(tr().votingClosed, 409);
     const ctx = roundContext(tx);
     const gift = [...ctx.receiverOf].find(([, r]) => r === forId)?.[0];
-    if (!gift || !ctx.gifts.includes(gift)) throw new UserError("That gift isn't being rated this round.", 404);
-    if (!votersFor(ctx, gift).includes(voterId)) throw new UserError("You don't get a vote on that gift this round.", 403);
+    if (!gift || !ctx.gifts.includes(gift)) throw new UserError(tr().giftNotInRound, 404);
+    if (!votersFor(ctx, gift).includes(voterId)) throw new UserError(tr().noVoteOnGift, 403);
     tx.insert(giftVote)
       .values({ round: ctx.round, voterId, giftGiverId: gift, score, updatedAt: new Date() })
       .onConflictDoUpdate({

@@ -7,19 +7,20 @@ import { admin } from "./routes/admin";
 import { live } from "./routes/live";
 import { me } from "./routes/me";
 import { localAvatarDir, storageMode } from "./services/storage";
+import { tr } from "./messages";
 
 export const app = new Hono()
   .onError((err, c) => {
     if (err instanceof UserError) return c.json({ error: err.message }, err.status);
     console.error(err);
-    return c.json({ error: "Something went wrong on our side." }, 500);
+    return c.json({ error: tr().serverError }, 500);
   })
   .get("/healthz", (c) => c.text("ok"))
   .on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw))
   .route("/api/live", live)
   .route("/api/me", me)
   .route("/api/admin", admin)
-  .all("/api/*", (c) => c.json({ error: "Not found" }, 404));
+  .all("/api/*", (c) => c.json({ error: tr().notFound }, 404));
 
 if (storageMode === "local") {
   app.use(

@@ -6,6 +6,7 @@ import type { ContestKind } from "../../shared/types";
 import { UserError } from "../errors";
 import { notify } from "../events";
 import { getState, patchState } from "./state";
+import { tr } from "../messages";
 
 export function starCounts(q: Pick<DB, "select"> = db): Map<string, number> {
   return new Map(
@@ -42,7 +43,7 @@ function existingIds(ids: string[]) {
 function checkContest(contestId: unknown): string | null {
   if (contestId === undefined || contestId === null || contestId === "") return null;
   if (typeof contestId !== "string" || !db.select().from(contest).where(eq(contest.id, contestId)).get()) {
-    throw new UserError("No such contest.", 404);
+    throw new UserError(tr().noSuchContest, 404);
   }
   return contestId;
 }
@@ -53,10 +54,10 @@ function checkContest(contestId: unknown): string | null {
  */
 export function award(ids: unknown, contestId?: unknown) {
   if (!Array.isArray(ids) || ids.length === 0 || !ids.every((i) => typeof i === "string")) {
-    throw new UserError("Pick at least one person.");
+    throw new UserError(tr().pickSomeone);
   }
   const valid = existingIds([...new Set(ids as string[])]);
-  if (valid.length === 0) throw new UserError("None of those people exist.", 404);
+  if (valid.length === 0) throw new UserError(tr().nobodyExists, 404);
   const cid = contestId === undefined ? getState().currentContestId : checkContest(contestId);
   const batch = crypto.randomUUID();
   const now = new Date();
@@ -69,14 +70,14 @@ export function award(ids: unknown, contestId?: unknown) {
 
 /** −1 star: removes that person's most recent star. */
 export function removeOne(participantId: unknown) {
-  if (typeof participantId !== "string") throw new UserError("Who?");
+  if (typeof participantId !== "string") throw new UserError(tr().who);
   const last = db
     .select({ id: star.id })
     .from(star)
     .where(eq(star.participantId, participantId))
     .orderBy(desc(star.id))
     .get();
-  if (!last) throw new UserError("They have no stars to take away.");
+  if (!last) throw new UserError(tr().noStarsToTake);
   db.delete(star).where(eq(star.id, last.id)).run();
   notify();
 }
@@ -89,7 +90,7 @@ export function removeOne(participantId: unknown) {
  */
 export function removeFromEach(ids: unknown, contestId?: unknown) {
   if (!Array.isArray(ids) || ids.length === 0 || !ids.every((i) => typeof i === "string")) {
-    throw new UserError("Pick at least one person.");
+    throw new UserError(tr().pickSomeone);
   }
   const cid = contestId === undefined || contestId === null ? null : checkContest(contestId);
   const unique = [...new Set(ids as string[])];
@@ -103,7 +104,7 @@ export function removeFromEach(ids: unknown, contestId?: unknown) {
     return last ? [last.id] : [];
   });
   if (drop.length === 0) {
-    throw new UserError(cid ? "None of them have stars in this contest to take away." : "None of them have stars to take away.");
+    throw new UserError(cid ? tr().noStarsInContest : tr().noneHaveStars);
   }
   db.delete(star).where(inArray(star.id, drop)).run();
   notify();
@@ -130,7 +131,7 @@ export function lastBatch() {
 /** Removes the most recent award batch entirely. */
 export function undoLast() {
   const b = lastBatch();
-  if (!b) throw new UserError("Nothing to undo.");
+  if (!b) throw new UserError(tr().nothingToUndo);
   db.delete(star).where(eq(star.awardBatchId, b.batchId)).run();
   notify();
 }
@@ -138,10 +139,10 @@ export function undoLast() {
 /** Sets someone's star count directly (adds or removes their newest stars). */
 export function setCount(participantId: unknown, count: unknown) {
   if (typeof participantId !== "string" || existingIds([participantId]).length === 0) {
-    throw new UserError("No such person.", 404);
+    throw new UserError(tr().noSuchPerson, 404);
   }
   if (typeof count !== "number" || !Number.isInteger(count) || count < 0 || count > 999) {
-    throw new UserError("Stars must be a whole number from 0 to 999.");
+    throw new UserError(tr().badStarCount);
   }
   const current = starCounts().get(participantId) ?? 0;
   if (count > current) {
@@ -173,8 +174,8 @@ export function leaders(): { stars: number; ids: string[] } {
 }
 
 export function createContest(name: unknown, kind: unknown) {
-  if (typeof name !== "string" || !name.trim()) throw new UserError("Give the contest a name.");
-  if (kind !== "individual" && kind !== "team") throw new UserError("Kind must be individual or team.");
+  if (typeof name !== "string" || !name.trim()) throw new UserError(tr().nameTheContest);
+  if (kind !== "individual" && kind !== "team") throw new UserError(tr().badContestKind);
   const c = db
     .insert(contest)
     .values({ name: name.trim().slice(0, 60), kind: kind as ContestKind })
@@ -188,10 +189,10 @@ export function createContest(name: unknown, kind: unknown) {
 /** Only a contest nobody has a star in can go — as if it never happened. */
 export function deleteContest(id: string) {
   const c = db.select().from(contest).where(eq(contest.id, id)).get();
-  if (!c) throw new UserError("No such contest.", 404);
+  if (!c) throw new UserError(tr().noSuchContest, 404);
   const n = db.select({ n: sql<number>`count(*)` }).from(star).where(eq(star.contestId, id)).get()?.n ?? 0;
   if (Number(n) > 0) {
-    throw new UserError(`“${c.name}” still has ${n} ⭐ awarded. Take them back first (−1), then delete it.`, 409);
+    throw new UserError(tr().contestHasStars(c.name, Number(n)), 409);
   }
   db.delete(contest).where(eq(contest.id, id)).run();
   notify();
