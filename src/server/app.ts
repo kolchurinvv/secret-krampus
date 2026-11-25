@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { serveStatic } from "@hono/bun";
 import { auth } from "./auth";
+import { withClientIp } from "./client-ip";
 import { env } from "./env";
 import { UserError } from "./errors";
 import { admin } from "./routes/admin";
@@ -16,7 +17,7 @@ export const app = new Hono()
     return c.json({ error: tr().serverError }, 500);
   })
   .get("/healthz", (c) => c.text("ok"))
-  .on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw))
+  .on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(withClientIp(c.req.raw)))
   .route("/api/live", live)
   .route("/api/me", me)
   .route("/api/admin", admin)

@@ -24,6 +24,33 @@ test.describe("login", () => {
     }
   });
 
+  test("behind the Cloudflare proxy, each guest still gets their own login limit", async () => {
+    // 25 visitors arriving through one Cloudflare edge server (104.16.0.1):
+    // Cloudflare names each one in CF-Connecting-IP.
+    const edge = await request.newContext({ baseURL: BASE, extraHTTPHeaders: { origin: BASE, "x-forwarded-for": "104.16.0.1" } });
+    for (let i = 1; i <= 25; i++) {
+      const res = await edge.post("/api/auth/email-otp/send-verification-otp", {
+        headers: { "cf-connecting-ip": `198.51.100.${i}` },
+        data: { email: `cf-guest-${i}@example.com`, type: "sign-in" },
+      });
+      expect(res.status(), `visitor ${i}`).toBe(200);
+    }
+  });
+
+  test("a faked Cloudflare header from outside Cloudflare doesn't dodge the limit", async () => {
+    const faker = await request.newContext({ baseURL: BASE, extraHTTPHeaders: { origin: BASE, "x-forwarded-for": "203.0.113.99" } });
+    const statuses: number[] = [];
+    for (let i = 1; i <= 25; i++) {
+      const res = await faker.post("/api/auth/email-otp/send-verification-otp", {
+        headers: { "cf-connecting-ip": `192.0.2.${i}` },
+        data: { email: `faker-${i}@example.com`, type: "sign-in" },
+      });
+      statuses.push(res.status());
+    }
+    expect(statuses.slice(0, 20).every((st) => st === 200)).toBe(true);
+    expect(statuses.slice(20)).toContain(429);
+  });
+
   test("rejects a login request from another site", async () => {
     const evil = await request.newContext({ baseURL: BASE, extraHTTPHeaders: { origin: "https://evil.example" } });
     const res = await evil.post("/api/auth/email-otp/send-verification-otp", {

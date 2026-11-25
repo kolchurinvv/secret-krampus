@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { emailOTP } from "better-auth/plugins";
+import { CLIENT_IP_HEADER } from "./client-ip";
 import { db } from "./db";
 import { account, session, user, verification } from "./db/schema";
 import { env } from "./env";
@@ -28,6 +29,9 @@ export const auth = betterAuth({
   trustedOrigins: (request) => [env.publicUrl, env.betterAuthUrl, request ? ownOrigin(request) : null],
   database: drizzleAdapter(db, { provider: "sqlite", schema: { user, session, account, verification } }),
   session: { expiresIn: 60 * 60 * 24 * 30, updateAge: 60 * 60 * 24 },
+  // Per-IP rate limits key on the real visitor, also behind the Cloudflare
+  // proxy (client-ip.ts; app.ts sets this header on every /api/auth request).
+  advanced: { ipAddress: { ipAddressHeaders: [CLIENT_IP_HEADER] } },
   plugins: [
     emailOTP({
       otpLength: 6,
