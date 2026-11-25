@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { body, requireAdmin, requireUser, type AppEnv } from "../http";
 import { createPerson, deletePerson, updatePerson } from "../services/participants";
 import { assign, resend, reshuffle, sendPending } from "../services/santa";
-import { setMessage, setScene } from "../services/scene";
+import { setLocale, setMessage, setScene } from "../services/scene";
 import {
   award,
   createContest,
@@ -109,6 +109,11 @@ export const admin = new Hono<AppEnv>()
   .post("/scene", async (c) => {
     const b = await body(c.req);
     setScene(b.kind, b.message);
+    return c.json(ok);
+  })
+  .post("/locale", async (c) => {
+    const b = await body(c.req);
+    setLocale(b.locale);
     return c.json(ok);
   })
   .post("/message", async (c) => {

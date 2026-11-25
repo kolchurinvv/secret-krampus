@@ -152,6 +152,7 @@ export function createMockSource(params: URLSearchParams): TvSource {
     version: 1,
     serverNow: now,
     publicUrl: "https://secretkrampus.party",
+    locale: "ru",
     scene: { kind: "title", startedAt: now, message: "" },
     santa: { pool: NAMES.length, assigned: NAMES.length, waiting: 0 },
     participants: NAMES.map((n, i) => person(n, i, now - (NAMES.length - i) * 60_000)),

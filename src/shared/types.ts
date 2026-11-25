@@ -9,6 +9,8 @@
 //    participant id). The giver never appears until the Krampus reveal.
 //  - AdminState shows delivery status per giver but never who they give to.
 
+import type { Locale } from "./i18n";
+
 export const SCENES = ["title", "lobby", "voting", "leaderboard", "krampus", "champion"] as const;
 export type SceneKind = (typeof SCENES)[number];
 
@@ -46,6 +48,8 @@ export type PublicState = {
   serverNow: number;
   /** Public origin, e.g. https://secretkrampus.party — for the lobby QR code. */
   publicUrl: string;
+  /** The language every screen renders in (the admin's toggle). */
+  locale: Locale;
   scene: { kind: SceneKind; startedAt: number; message: string };
   santa: { pool: number; assigned: number; waiting: number };
   participants: PublicParticipant[];
@@ -194,4 +198,5 @@ export type ApiError = { error: string };
  *   POST   /api/admin/stars/set               { participantId, count }
  *   POST   /api/admin/scene                   { kind: SceneKind, message? }  (krampus needs voting done; champion crowns current leaders)
  *   POST   /api/admin/message                 { message }
+ *   POST   /api/admin/locale                  { locale: "ru" | "en" }   (the whole app's language)
  */

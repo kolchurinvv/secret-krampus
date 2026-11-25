@@ -16,7 +16,9 @@ export function openDatabase(path: string) {
   const db = drizzle({ client: sqlite, schema });
   migrate(db, { migrationsFolder: join(import.meta.dir, "migrations") });
   // The single app_state row always exists.
-  sqlite.exec("INSERT OR IGNORE INTO app_state (id, scene_started_at) VALUES (1, " + Date.now() + ");");
+  sqlite
+    .query("INSERT OR IGNORE INTO app_state (id, scene_started_at, locale) VALUES (1, ?, ?)")
+    .run(Date.now(), env.defaultLocale);
   return { db, sqlite };
 }
 

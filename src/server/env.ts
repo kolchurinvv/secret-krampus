@@ -1,3 +1,5 @@
+import { DEFAULT_LOCALE, isLocale } from "../shared/i18n";
+
 // All configuration comes from the environment (bun loads .env in dev).
 // Optional integrations fall back to dev-friendly behaviour when unset.
 
@@ -29,6 +31,8 @@ export const env = {
   emailFrom: opt("EMAIL_FROM") ?? "Secret Krampus <krampus@secretkrampus.party>",
   /** Console-mailer only: also append each email as a JSON line here (the e2e tests read login codes from it). */
   mailLog: opt("MAIL_LOG"),
+  /** Language of a brand-new database (the admin can switch it any time). */
+  defaultLocale: isLocale(opt("DEFAULT_LOCALE")) ? (opt("DEFAULT_LOCALE") as typeof DEFAULT_LOCALE) : DEFAULT_LOCALE,
   r2: {
     endpoint: opt("R2_ENDPOINT"),
     bucket: opt("R2_BUCKET"),

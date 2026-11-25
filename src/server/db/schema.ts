@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { index, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import type { Locale } from "../../shared/i18n";
 import type { ContestKind, SceneKind, VoteStatus } from "../../shared/types";
 
 const now = () => new Date();
@@ -173,4 +174,6 @@ export const appState = sqliteTable("app_state", {
   championStars: integer("champion_stars").notNull().default(0),
   revealedChampion: integer("revealed_champion", { mode: "boolean" }).notNull().default(false),
   currentContestId: text("current_contest_id").references(() => contest.id, { onDelete: "set null" }),
+  /** The language the whole app (and its emails) speaks; the admin toggles it. */
+  locale: text("locale").$type<Locale>().notNull().default("ru"),
 });

@@ -69,6 +69,7 @@ export function buildPublicState(): PublicState {
     version: currentVersion(),
     serverNow: Date.now(),
     publicUrl: env.publicUrl,
+    locale: state.locale,
     scene: { kind: state.scene, startedAt: state.sceneStartedAt.getTime(), message: state.sceneMessage },
     santa: { pool, assigned: rows.length, waiting: all.filter((p) => p.inSanta && !rows.some((r) => r.giverId === p.id)).length },
     participants: all.map((p) => ({

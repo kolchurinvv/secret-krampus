@@ -1,0 +1,1 @@
+ALTER TABLE `app_state` ADD `locale` text DEFAULT 'ru' NOT NULL;

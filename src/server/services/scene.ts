@@ -1,3 +1,4 @@
+import { isLocale } from "../../shared/i18n";
 import { SCENES, type SceneKind } from "../../shared/types";
 import { UserError } from "../errors";
 import { notify } from "../events";
@@ -24,6 +25,13 @@ export function setScene(kind: unknown, message?: unknown) {
     patch.revealedChampion = true;
   }
   patchState(patch);
+  notify();
+}
+
+/** Switches the language for every screen and every email from now on. */
+export function setLocale(locale: unknown) {
+  if (!isLocale(locale)) throw new UserError("Locale must be ru or en.");
+  patchState({ locale });
   notify();
 }
 

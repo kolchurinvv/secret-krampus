@@ -1,5 +1,8 @@
 import { Router, Route, Navigate, type RouteSectionProps } from "@solidjs/router";
-import { ErrorBoundary, lazy, type Component } from "solid-js";
+import { createEffect, ErrorBoundary, lazy, type Component } from "solid-js";
+import { applyLocale, useMessages } from "./lib/i18n";
+import { useLive } from "./lib/live";
+import { commonMessages } from "./messages";
 
 const RELOAD_KEY = "sk-chunk-reload-at";
 
@@ -35,18 +38,29 @@ const Live = page(() => import("./pages/Live"));
 
 function Crashed(props: { error: unknown }) {
   console.error(props.error);
+  const m = useMessages(commonMessages);
   return (
     <main class="responsive" style={{ "padding-top": "20vh", "text-align": "center" }}>
-      <h5 class="sk-display">The elves dropped something 🎁</h5>
-      <p>{props.error instanceof Error ? props.error.message : "Something went wrong."}</p>
+      <h5 class="sk-display">{m().crashTitle}</h5>
+      <p>{props.error instanceof Error ? props.error.message : m().crashFallback}</p>
       <button class="round" onClick={() => location.reload()}>
-        Reload
+        {m().reload}
       </button>
     </main>
   );
 }
 
 function Root(props: RouteSectionProps) {
+  // Every screen follows the language the admin picked (PublicState.locale).
+  const live = useLive();
+  const m = useMessages(commonMessages);
+  createEffect(() => {
+    const l = live.data?.locale;
+    if (l) applyLocale(l);
+  });
+  createEffect(() => {
+    document.title = m().appName;
+  });
   return <ErrorBoundary fallback={(error) => <Crashed error={error} />}>{props.children}</ErrorBoundary>;
 }
 
