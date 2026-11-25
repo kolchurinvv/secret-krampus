@@ -11,7 +11,13 @@
     {
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {
-          packages = [ ];
+          # podman is left to the system: rootless podman needs host
+          # configuration a devshell cannot provide.
+          packages = with pkgs; [
+            bun     # runtime, package manager, test runner
+            just    # task runner (see justfile)
+            sqlite  # inspect data/krampus.db by hand
+          ];
         };
       });
     };
