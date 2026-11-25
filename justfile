@@ -38,6 +38,10 @@ dev:
 test:
     bun test
 
+# Run the Playwright e2e suite in Chromium (browsers from the flake). Extra args go to playwright.
+e2e *args:
+    bash scripts/playwright-runner.sh test {{args}}
+
 # Type-check the whole project (server, client, scripts).
 typecheck:
     bun run typecheck
