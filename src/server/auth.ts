@@ -7,12 +7,25 @@ import { env } from "./env";
 import { sendOtpEmail } from "./services/email";
 import { ensureParticipantForUser } from "./services/participants";
 
+/** The origin this request was addressed to (Traefik sets X-Forwarded-Proto). */
+function ownOrigin(request: Request): string | null {
+  const host = request.headers.get("host");
+  if (!host) return null;
+  const proto = request.headers.get("x-forwarded-proto") ?? new URL(request.url).protocol.replace(":", "");
+  return `${proto}://${host}`;
+}
+
 // Passwordless: type your email, get a 6-digit code, type it in. The login is
 // only there to tell people apart, so sessions are long (30 days).
 export const auth = betterAuth({
   baseURL: env.betterAuthUrl,
   secret: env.betterAuthSecret,
-  trustedOrigins: [env.publicUrl],
+  // The configured URL, plus the server's own origin. The SPA is always served
+  // by this same server, so a same-origin request is safe even when the app
+  // is reached at another address than PUBLIC_URL: `just start` on :3000 with
+  // a dev .env (PUBLIC_URL=…:5173), or a phone on the LAN. A cross-site
+  // request still fails, because its Origin never matches this Host.
+  trustedOrigins: (request) => [env.publicUrl, env.betterAuthUrl, request ? ownOrigin(request) : null],
   database: drizzleAdapter(db, { provider: "sqlite", schema: { user, session, account, verification } }),
   session: { expiresIn: 60 * 60 * 24 * 30, updateAge: 60 * 60 * 24 },
   plugins: [
