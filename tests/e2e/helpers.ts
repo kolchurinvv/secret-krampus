@@ -24,7 +24,7 @@ export async function codeFor(email: string, since: number): Promise<string> {
       () => {
         code = mails(email)
           .filter((m) => m.at >= since)
-          .map((m) => /code: (\d{6})/.exec(m.subject)?.[1])
+          .map((m) => /(\d{6})\s*$/.exec(m.subject)?.[1]) // "…code: 123456" / "…Крампус: 123456"
           .filter(Boolean)
           .at(-1);
         return code;
